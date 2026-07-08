@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "type": "percent",
+  "value": 20,
+  "label": "SALE",
+  "startDate": "",
+  "endDate": ""
+}
