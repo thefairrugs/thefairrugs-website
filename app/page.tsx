@@ -6,8 +6,13 @@ import Categories from "./components/Categories";
 import FeaturedRugs from "./components/FeaturedRugs";
 import Craftsmanship from "./components/Craftsmanship";
 import WhyChooseUs from "./components/WhyChooseUs";
-import DesignerSection from "./components/DesignerSection";
+import MaterialsSection from "./components/MaterialsSection";
+import ManufacturingProcess from "./components/ManufacturingProcess";
 import Testimonials from "./components/Testimonials";
+import InstagramGallery from "./components/InstagramGallery";
+import WorldwideShipping from "./components/WorldwideShipping";
+import HomeFAQ from "./components/HomeFAQ";
+import DesignerSection from "./components/DesignerSection";
 import Footer from "./components/Footer";
 
 export const metadata: Metadata = {
@@ -32,9 +37,14 @@ export default function Home() {
         <Categories />
         <FeaturedRugs />
         <Craftsmanship />
+        <MaterialsSection />
+        <ManufacturingProcess />
         <WhyChooseUs />
-        <DesignerSection />
         <Testimonials />
+        <InstagramGallery />
+        <WorldwideShipping />
+        <HomeFAQ />
+        <DesignerSection />
       </main>
       <Footer />
     </>

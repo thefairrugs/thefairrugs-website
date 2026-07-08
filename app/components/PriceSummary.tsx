@@ -27,7 +27,7 @@ export default function PriceSummary({
     const message = encodeURIComponent(
       `Hello! I'm interested in a custom rug:\n\nMaterial: ${rugType}\nStyle: ${category}\nShape: ${shape}\nSize: ${size}\nArea: ${sqft.toFixed(2)} sq.ft\nEstimated Price: $${price.toFixed(0)}\n\nPlease send me a final quote.`
     );
-    window.open(`https://wa.me/919999999999?text=${message}`, "_blank");
+    window.open(`https://wa.me/918416919470?text=${message}`, "_blank");
   };
 
   return (
