@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import { products } from "../data/products";
+import { constructionToRugType, computePrice, sizes } from "../lib/pricing";
+
+// 5×8 ft as the reference display size
+const DISPLAY_SIZE = sizes.find((s) => s.name === "5×8 ft") || { sqft: 40 };
+
+interface DiscountConfig {
+  active: boolean;
+  type: "percent" | "fixed";
+  value: number;
+  label: string;
+}
 
 const badgeColors: Record<string, { bg: string; color: string }> = {
   Bestseller: { bg: "var(--gold)", color: "var(--foreground)" },
@@ -14,6 +26,15 @@ const badgeColors: Record<string, { bg: string; color: string }> = {
 };
 
 export default function FeaturedRugs() {
+  const [discount, setDiscount] = useState<DiscountConfig | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/discount")
+      .then((r) => r.json())
+      .then((d) => { if (d.active) setDiscount(d); })
+      .catch(() => {});
+  }, []);
+
   return (
     <section style={{ padding: "110px 0", background: "var(--background)" }}>
       <div className="container">
@@ -44,141 +65,162 @@ export default function FeaturedRugs() {
           className="featured-grid"
           style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "28px" }}
         >
-          {products.map((rug) => (
-            <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  position: "relative", background: "var(--surface)",
-                  borderRadius: "var(--radius-lg)", overflow: "hidden",
-                  border: "1px solid var(--border-light)", boxShadow: "var(--shadow-sm)",
-                  cursor: "pointer", transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(-8px)";
-                  el.style.boxShadow = "var(--shadow-xl)";
-                  el.style.borderColor = "var(--border-green)";
-                  const img = el.querySelector("img") as HTMLImageElement;
-                  if (img) img.style.transform = "scale(1.06)";
-                  const overlay = el.querySelector(".rug-hover-overlay") as HTMLElement;
-                  if (overlay) overlay.style.opacity = "1";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(0)";
-                  el.style.boxShadow = "var(--shadow-sm)";
-                  el.style.borderColor = "var(--border-light)";
-                  const img = el.querySelector("img") as HTMLImageElement;
-                  if (img) img.style.transform = "scale(1)";
-                  const overlay = el.querySelector(".rug-hover-overlay") as HTMLElement;
-                  if (overlay) overlay.style.opacity = "0";
-                }}
-              >
-                {/* Image */}
-                <div style={{ position: "relative", height: "280px", overflow: "hidden" }}>
-                  <Image
-                    src={rug.image}
-                    alt={rug.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    style={{
-                      objectFit: "cover",
-                      transition: "transform 0.7s cubic-bezier(0.4,0,0.2,1)",
-                    }}
-                  />
-                  {/* Hover overlay */}
-                  <div
-                    className="rug-hover-overlay"
-                    style={{
-                      position: "absolute", inset: 0,
-                      background: "linear-gradient(to top, rgba(28,35,20,0.65) 0%, transparent 55%)",
-                      opacity: 0, transition: "opacity 0.4s ease",
-                      display: "flex", alignItems: "flex-end", padding: "20px",
-                    }}
-                  >
-                    <span style={{
-                      color: "#fff", fontSize: "12px", fontWeight: 700,
-                      letterSpacing: "0.1em", textTransform: "uppercase",
+          {products.map((rug) => {
+            const rugTypeId = constructionToRugType(rug.construction);
+            const pricing = computePrice(
+              DISPLAY_SIZE.sqft,
+              rugTypeId,
+              1.0,
+              discount ? { enabled: true, type: discount.type, value: discount.value } : undefined
+            );
+            return (
+              <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>
+                <div
+                  style={{
+                    position: "relative", background: "var(--surface)",
+                    borderRadius: "var(--radius-lg)", overflow: "hidden",
+                    border: "1px solid var(--border-light)", boxShadow: "var(--shadow-sm)",
+                    cursor: "pointer", transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.transform = "translateY(-8px)";
+                    el.style.boxShadow = "var(--shadow-xl)";
+                    el.style.borderColor = "var(--border-green)";
+                    const img = el.querySelector("img") as HTMLImageElement;
+                    if (img) img.style.transform = "scale(1.06)";
+                    const overlay = el.querySelector(".rug-hover-overlay") as HTMLElement;
+                    if (overlay) overlay.style.opacity = "1";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.transform = "translateY(0)";
+                    el.style.boxShadow = "var(--shadow-sm)";
+                    el.style.borderColor = "var(--border-light)";
+                    const img = el.querySelector("img") as HTMLImageElement;
+                    if (img) img.style.transform = "scale(1)";
+                    const overlay = el.querySelector(".rug-hover-overlay") as HTMLElement;
+                    if (overlay) overlay.style.opacity = "0";
+                  }}
+                >
+                  {/* Image */}
+                  <div style={{ position: "relative", height: "280px", overflow: "hidden" }}>
+                    <Image
+                      src={rug.image}
+                      alt={rug.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      style={{
+                        objectFit: "cover",
+                        transition: "transform 0.7s cubic-bezier(0.4,0,0.2,1)",
+                      }}
+                    />
+                    {/* Hover overlay */}
+                    <div
+                      className="rug-hover-overlay"
+                      style={{
+                        position: "absolute", inset: 0,
+                        background: "linear-gradient(to top, rgba(28,35,20,0.65) 0%, transparent 55%)",
+                        opacity: 0, transition: "opacity 0.4s ease",
+                        display: "flex", alignItems: "flex-end", padding: "20px",
+                      }}
+                    >
+                      <span style={{
+                        color: "#fff", fontSize: "12px", fontWeight: 700,
+                        letterSpacing: "0.1em", textTransform: "uppercase",
+                      }}>
+                        View Details →
+                      </span>
+                    </div>
+
+                    {/* Badge */}
+                    {rug.badge && (
+                      <div style={{
+                        position: "absolute", top: "14px", left: "14px",
+                        padding: "4px 12px", borderRadius: "9999px",
+                        fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        background: badgeColors[rug.badge]?.bg || "var(--primary)",
+                        color: badgeColors[rug.badge]?.color || "#fff",
+                      }}>
+                        {rug.badge}
+                      </div>
+                    )}
+
+                    {/* Only show SALE badge when discount is active */}
+                    {discount && (
+                      <div style={{
+                        position: "absolute", top: "14px", right: "14px",
+                        background: "#dc2626", color: "#fff",
+                        padding: "3px 9px", borderRadius: "9999px",
+                        fontSize: "10px", fontWeight: 700, letterSpacing: "0.05em",
+                      }}>
+                        {discount.label}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ padding: "22px 24px 26px" }}>
+                    <p style={{
+                      fontSize: "10px", color: "var(--primary)",
+                      letterSpacing: "0.12em", textTransform: "uppercase",
+                      fontWeight: 600, marginBottom: "8px",
+                    }}>
+                      {rug.subtitle}
+                    </p>
+
+                    <h3 style={{
+                      fontFamily: "var(--font-cormorant), Georgia, serif",
+                      fontSize: "22px", fontWeight: 500,
+                      color: "var(--foreground)", letterSpacing: "-0.01em",
+                      marginBottom: "12px", lineHeight: 1.2,
+                    }}>
+                      {rug.title}
+                    </h3>
+
+                    {/* Stars */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+                      <span style={{ color: "var(--gold)", fontSize: "13px", letterSpacing: "2px" }}>★★★★★</span>
+                      <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>({rug.reviews})</span>
+                    </div>
+
+                    {/* Dynamic Price from shared pricing engine */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary)", letterSpacing: "-0.02em" }}>
+                        From {pricing.priceLabel}
+                      </span>
+                      {pricing.discountedPrice !== null && (
+                        <span style={{ fontSize: "13px", color: "#bbb", textDecoration: "line-through" }}>
+                          ${Math.round(pricing.basePrice)}
+                        </span>
+                      )}
+                    </div>
+                    {pricing.discountedPrice !== null && (
+                      <p style={{ fontSize: "11px", color: "#dc2626", fontWeight: 600, marginBottom: "4px" }}>
+                        Save {pricing.savingsPct}% · {discount?.label}
+                      </p>
+                    )}
+                    <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginBottom: "18px" }}>
+                      For 5×8 ft · {pricing.perSqftLabel}
+                    </p>
+
+                    {/* CTA */}
+                    <div style={{
+                      width: "100%", padding: "11px",
+                      background: "var(--primary-pale)", color: "var(--primary)",
+                      borderRadius: "var(--radius-md)",
+                      fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em",
+                      textTransform: "uppercase", textAlign: "center",
+                      border: "1.5px solid var(--border-green)",
                     }}>
                       View Details →
-                    </span>
-                  </div>
-
-                  {/* Badge */}
-                  {rug.badge && (
-                    <div style={{
-                      position: "absolute", top: "14px", left: "14px",
-                      padding: "4px 12px", borderRadius: "9999px",
-                      fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      background: badgeColors[rug.badge]?.bg || "var(--primary)",
-                      color: badgeColors[rug.badge]?.color || "#fff",
-                    }}>
-                      {rug.badge}
                     </div>
-                  )}
-
-                  {/* Discount */}
-                  <div style={{
-                    position: "absolute", top: "14px", right: "14px",
-                    background: "#c1440e", color: "#fff",
-                    padding: "3px 9px", borderRadius: "9999px",
-                    fontSize: "10px", fontWeight: 700, letterSpacing: "0.05em",
-                  }}>
-                    SALE
                   </div>
                 </div>
-
-                {/* Content */}
-                <div style={{ padding: "22px 24px 26px" }}>
-                  <p style={{
-                    fontSize: "10px", color: "var(--primary)",
-                    letterSpacing: "0.12em", textTransform: "uppercase",
-                    fontWeight: 600, marginBottom: "8px",
-                  }}>
-                    {rug.subtitle}
-                  </p>
-
-                  <h3 style={{
-                    fontFamily: "var(--font-cormorant), Georgia, serif",
-                    fontSize: "22px", fontWeight: 500,
-                    color: "var(--foreground)", letterSpacing: "-0.01em",
-                    marginBottom: "12px", lineHeight: 1.2,
-                  }}>
-                    {rug.title}
-                  </h3>
-
-                  {/* Stars */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
-                    <span style={{ color: "var(--gold)", fontSize: "13px", letterSpacing: "2px" }}>★★★★★</span>
-                    <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>({rug.reviews})</span>
-                  </div>
-
-                  {/* Price */}
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "18px" }}>
-                    <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--primary)", letterSpacing: "-0.02em" }}>
-                      {rug.priceDisplay}
-                    </span>
-                    <span style={{ fontSize: "14px", color: "#bbb", textDecoration: "line-through" }}>
-                      {rug.oldPriceDisplay}
-                    </span>
-                  </div>
-
-                  {/* CTA */}
-                  <div style={{
-                    width: "100%", padding: "11px",
-                    background: "var(--primary-pale)", color: "var(--primary)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em",
-                    textTransform: "uppercase", textAlign: "center",
-                    border: "1.5px solid var(--border-green)",
-                  }}>
-                    View Details →
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
 
         {/* View All */}

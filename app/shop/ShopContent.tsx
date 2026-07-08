@@ -1,17 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { products } from "../data/products";
+import { products as staticProducts } from "../data/products";
+import { constructionToRugType, computePrice, sizes } from "../lib/pricing";
 
-const CATEGORIES = [
-  { label: "All Rugs", value: "all" },
-  { label: "Hand Knotted", value: "hand-knotted" },
-  { label: "Hand Tufted", value: "hand-tufted" },
-  { label: "Durrie", value: "durrie" },
-  { label: "Jute", value: "jute" },
+// ── Default reference size for "from $X" display (5×8 ft = 40 sqft) ──────────
+const DISPLAY_SIZE = sizes.find((s) => s.name === "5×8 ft") || { sqft: 40 };
+
+interface DiscountConfig {
+  active: boolean;
+  type: "percent" | "fixed";
+  value: number;
+  label: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+}
+
+const DEFAULT_CATEGORIES = [
+  { id: "all", name: "All Rugs", slug: "all", active: true },
+  { id: "hand-knotted", name: "Hand Knotted", slug: "hand-knotted", active: true },
+  { id: "hand-tufted", name: "Hand Tufted", slug: "hand-tufted", active: true },
+  { id: "durrie", name: "Durrie", slug: "durrie", active: true },
+  { id: "jute", name: "Jute", slug: "jute", active: true },
 ];
 
 const SORT_OPTIONS = [
@@ -34,25 +52,76 @@ export default function ShopContent() {
   const searchParams = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
+  const [discount, setDiscount] = useState<DiscountConfig | null>(null);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [dbProducts, setDbProducts] = useState<typeof staticProducts | null>(null);
+
+  // Fetch discount config (live)
+  useEffect(() => {
+    fetch("/api/admin/discount")
+      .then((r) => r.json())
+      .then((d) => { if (d.active) setDiscount(d); })
+      .catch(() => {});
+  }, []);
+
+  // Fetch categories from API
+  useEffect(() => {
+    fetch("/api/admin/categories")
+      .then((r) => r.json())
+      .then((cats: Category[]) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          const active = cats.filter((c) => c.active !== false);
+          setCategories([
+            { id: "all", name: "All Rugs", slug: "all", active: true },
+            ...active.map((c) => ({ id: c.id, name: c.name, slug: c.slug, active: c.active })),
+          ]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch products from DB (falls back to static)
+  useEffect(() => {
+    fetch("/api/admin/products")
+      .then((r) => r.json())
+      .then((prods) => {
+        if (Array.isArray(prods) && prods.length > 0) {
+          setDbProducts(prods as typeof staticProducts);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const displayProducts = dbProducts || staticProducts;
 
   useEffect(() => {
     const cat = searchParams.get("category");
     if (cat) setActiveCategory(cat);
   }, [searchParams]);
 
-  const filtered = products.filter((p) => {
+  const filtered = displayProducts.filter((p) => {
     if (activeCategory === "all") return true;
-    return p.rugType === activeCategory;
+    return p.rugType === activeCategory || p.category?.toLowerCase().replace(/\s+/g, "-") === activeCategory;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "price-asc") return a.price - b.price;
-    if (sortBy === "price-desc") return b.price - a.price;
-    if (sortBy === "reviews") return b.reviews - a.reviews;
-    return 0;
-  });
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "price-asc") {
+        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction)).displayPrice;
+        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction)).displayPrice;
+        return pa - pb;
+      }
+      if (sortBy === "price-desc") {
+        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction)).displayPrice;
+        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction)).displayPrice;
+        return pb - pa;
+      }
+      if (sortBy === "reviews") return (b.reviews || 0) - (a.reviews || 0);
+      return 0;
+    });
+  }, [filtered, sortBy]);
 
-  const currentCategory = CATEGORIES.find((c) => c.value === activeCategory);
+  const currentCategory = categories.find((c) => c.id === activeCategory || c.slug === activeCategory);
 
   return (
     <>
@@ -66,7 +135,6 @@ export default function ShopContent() {
           overflow: "hidden",
         }}
       >
-        {/* Decorative */}
         <div style={{
           position: "absolute", inset: 0,
           backgroundImage: "radial-gradient(circle at 30% 60%, rgba(184,151,90,0.12) 0%, transparent 55%), radial-gradient(circle at 70% 40%, rgba(122,143,106,0.1) 0%, transparent 55%)",
@@ -91,7 +159,7 @@ export default function ShopContent() {
             {activeCategory === "all" ? (
               <>Shop All <em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>Luxury Rugs</em></>
             ) : (
-              <><em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>{currentCategory?.label}</em> Rugs</>
+              <><em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>{currentCategory?.name}</em> Rugs</>
             )}
           </h1>
           <p style={{
@@ -101,6 +169,16 @@ export default function ShopContent() {
           }}>
             Every rug handmade in Jaipur by master artisans. Free worldwide shipping. Custom sizes available on all rugs.
           </p>
+          {discount && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "8px",
+              marginTop: "24px", background: "#dc2626",
+              color: "#fff", padding: "8px 24px", borderRadius: "9999px",
+              fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em",
+            }}>
+              🏷️ {discount.label} — {discount.type === "percent" ? `${discount.value}% OFF` : `$${discount.value} OFF`} All Rugs
+            </div>
+          )}
         </div>
       </div>
 
@@ -116,22 +194,22 @@ export default function ShopContent() {
         }}>
           {/* Category Filters */}
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
-                key={cat.value}
-                onClick={() => setActiveCategory(cat.value)}
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.slug || cat.id)}
                 style={{
                   padding: "8px 20px",
                   borderRadius: "9999px",
-                  border: `1.5px solid ${activeCategory === cat.value ? "var(--primary)" : "var(--border)"}`,
-                  background: activeCategory === cat.value ? "var(--primary)" : "transparent",
-                  color: activeCategory === cat.value ? "#fff" : "var(--foreground-muted)",
+                  border: `1.5px solid ${(activeCategory === cat.slug || activeCategory === cat.id) ? "var(--primary)" : "var(--border)"}`,
+                  background: (activeCategory === cat.slug || activeCategory === cat.id) ? "var(--primary)" : "transparent",
+                  color: (activeCategory === cat.slug || activeCategory === cat.id) ? "#fff" : "var(--foreground-muted)",
                   fontSize: "12px", fontWeight: 600,
                   letterSpacing: "0.06em", cursor: "pointer",
                   transition: "all 0.2s ease",
                 }}
               >
-                {cat.label}
+                {cat.name}
               </button>
             ))}
           </div>
@@ -161,19 +239,16 @@ export default function ShopContent() {
       <section style={{ padding: "60px 0 100px", background: "var(--background)" }}>
         <div className="container">
           {sorted.length === 0 ? (
-            <div style={{
-              textAlign: "center", padding: "100px 20px",
-            }}>
+            <div style={{ textAlign: "center", padding: "100px 20px" }}>
               <div style={{ fontSize: "56px", marginBottom: "24px" }}>🧶</div>
               <h3 style={{
                 fontFamily: "var(--font-cormorant), Georgia, serif",
-                fontSize: "32px", fontWeight: 300, color: "var(--foreground)",
-                marginBottom: "16px",
+                fontSize: "32px", fontWeight: 300, color: "var(--foreground)", marginBottom: "16px",
               }}>
                 No products available
               </h3>
               <p style={{ color: "var(--foreground-muted)", fontSize: "16px", marginBottom: "32px" }}>
-                We don&apos;t have any {currentCategory?.label} rugs in our catalog yet, but we can create one custom for you.
+                We don&apos;t have any {currentCategory?.name} rugs in our catalog yet, but we can create one custom for you.
               </p>
               <Link href="/custom-rug" style={{ textDecoration: "none" }}>
                 <button className="btn btn-primary" style={{ padding: "16px 40px", fontSize: "13px" }}>
@@ -186,108 +261,132 @@ export default function ShopContent() {
               className="featured-grid"
               style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "28px" }}
             >
-              {sorted.map((rug) => (
-                <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>
-                  <div
-                    style={{
-                      background: "var(--surface)", borderRadius: "var(--radius-lg)",
-                      overflow: "hidden", border: "1px solid var(--border-light)",
-                      boxShadow: "var(--shadow-sm)", cursor: "pointer",
-                      transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
-                    }}
-                    onMouseEnter={(e) => {
-                      const el = e.currentTarget as HTMLElement;
-                      el.style.transform = "translateY(-8px)";
-                      el.style.boxShadow = "var(--shadow-xl)";
-                      el.style.borderColor = "var(--border-green)";
-                      const img = el.querySelector("img") as HTMLImageElement;
-                      if (img) img.style.transform = "scale(1.06)";
-                      const overlay = el.querySelector(".shop-overlay") as HTMLElement;
-                      if (overlay) overlay.style.opacity = "1";
-                    }}
-                    onMouseLeave={(e) => {
-                      const el = e.currentTarget as HTMLElement;
-                      el.style.transform = "translateY(0)";
-                      el.style.boxShadow = "var(--shadow-sm)";
-                      el.style.borderColor = "var(--border-light)";
-                      const img = el.querySelector("img") as HTMLImageElement;
-                      if (img) img.style.transform = "scale(1)";
-                      const overlay = el.querySelector(".shop-overlay") as HTMLElement;
-                      if (overlay) overlay.style.opacity = "0";
-                    }}
-                  >
-                    <div style={{ position: "relative", height: "280px", overflow: "hidden" }}>
-                      <Image
-                        src={rug.image}
-                        alt={rug.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                        style={{ objectFit: "cover", transition: "transform 0.7s cubic-bezier(0.4,0,0.2,1)" }}
-                      />
-                      <div
-                        className="shop-overlay"
-                        style={{
-                          position: "absolute", inset: 0,
-                          background: "linear-gradient(to top, rgba(28,35,20,0.65) 0%, transparent 55%)",
-                          opacity: 0, transition: "opacity 0.4s ease",
-                          display: "flex", alignItems: "flex-end", padding: "20px",
-                        }}
-                      >
-                        <span style={{ color: "#fff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                          View Details →
-                        </span>
-                      </div>
-
-                      {rug.badge && (
-                        <div style={{
-                          position: "absolute", top: "14px", left: "14px",
-                          padding: "4px 12px", borderRadius: "9999px",
-                          fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          background: badgeColors[rug.badge]?.bg || "var(--primary)",
-                          color: badgeColors[rug.badge]?.color || "#fff",
-                        }}>
-                          {rug.badge}
+              {sorted.map((rug) => {
+                const rugTypeId = constructionToRugType(rug.construction);
+                const pricing = computePrice(
+                  DISPLAY_SIZE.sqft,
+                  rugTypeId,
+                  1.0,
+                  discount ? { enabled: true, type: discount.type, value: discount.value } : undefined
+                );
+                return (
+                  <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>
+                    <div
+                      style={{
+                        background: "var(--surface)", borderRadius: "var(--radius-lg)",
+                        overflow: "hidden", border: "1px solid var(--border-light)",
+                        boxShadow: "var(--shadow-sm)", cursor: "pointer",
+                        transition: "all 0.4s cubic-bezier(0.4,0,0.2,1)",
+                      }}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.transform = "translateY(-8px)";
+                        el.style.boxShadow = "var(--shadow-xl)";
+                        el.style.borderColor = "var(--border-green)";
+                        const img = el.querySelector("img") as HTMLImageElement;
+                        if (img) img.style.transform = "scale(1.06)";
+                        const overlay = el.querySelector(".shop-overlay") as HTMLElement;
+                        if (overlay) overlay.style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.transform = "translateY(0)";
+                        el.style.boxShadow = "var(--shadow-sm)";
+                        el.style.borderColor = "var(--border-light)";
+                        const img = el.querySelector("img") as HTMLImageElement;
+                        if (img) img.style.transform = "scale(1)";
+                        const overlay = el.querySelector(".shop-overlay") as HTMLElement;
+                        if (overlay) overlay.style.opacity = "0";
+                      }}
+                    >
+                      <div style={{ position: "relative", height: "280px", overflow: "hidden" }}>
+                        <Image
+                          src={rug.image}
+                          alt={rug.title}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                          style={{ objectFit: "cover", transition: "transform 0.7s cubic-bezier(0.4,0,0.2,1)" }}
+                        />
+                        <div
+                          className="shop-overlay"
+                          style={{
+                            position: "absolute", inset: 0,
+                            background: "linear-gradient(to top, rgba(28,35,20,0.65) 0%, transparent 55%)",
+                            opacity: 0, transition: "opacity 0.4s ease",
+                            display: "flex", alignItems: "flex-end", padding: "20px",
+                          }}
+                        >
+                          <span style={{ color: "#fff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                            View Details →
+                          </span>
                         </div>
-                      )}
-                      <div style={{
-                        position: "absolute", top: "14px", right: "14px",
-                        background: "#c1440e", color: "#fff",
-                        padding: "3px 9px", borderRadius: "9999px",
-                        fontSize: "10px", fontWeight: 700,
-                      }}>
-                        SALE
-                      </div>
-                    </div>
 
-                    <div style={{ padding: "22px 24px 26px" }}>
-                      <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: "8px" }}>
-                        {rug.subtitle}
-                      </p>
-                      <h3 style={{
-                        fontFamily: "var(--font-cormorant), Georgia, serif",
-                        fontSize: "22px", fontWeight: 500,
-                        color: "var(--foreground)", letterSpacing: "-0.01em",
-                        marginBottom: "10px", lineHeight: 1.2,
-                      }}>
-                        {rug.title}
-                      </h3>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                        <span style={{ color: "var(--gold)", fontSize: "13px", letterSpacing: "2px" }}>★★★★★</span>
-                        <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>({rug.reviews})</span>
+                        {rug.badge && (
+                          <div style={{
+                            position: "absolute", top: "14px", left: "14px",
+                            padding: "4px 12px", borderRadius: "9999px",
+                            fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            background: badgeColors[rug.badge]?.bg || "var(--primary)",
+                            color: badgeColors[rug.badge]?.color || "#fff",
+                          }}>
+                            {rug.badge}
+                          </div>
+                        )}
+
+                        {/* Only show SALE badge if discount is active */}
+                        {discount && (
+                          <div style={{
+                            position: "absolute", top: "14px", right: "14px",
+                            background: "#dc2626", color: "#fff",
+                            padding: "3px 9px", borderRadius: "9999px",
+                            fontSize: "10px", fontWeight: 700,
+                          }}>
+                            {discount.label}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-                        <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--primary)", letterSpacing: "-0.02em" }}>
-                          {rug.priceDisplay}
-                        </span>
-                        <span style={{ fontSize: "14px", color: "#bbb", textDecoration: "line-through" }}>
-                          {rug.oldPriceDisplay}
-                        </span>
+
+                      <div style={{ padding: "22px 24px 26px" }}>
+                        <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: "8px" }}>
+                          {rug.subtitle}
+                        </p>
+                        <h3 style={{
+                          fontFamily: "var(--font-cormorant), Georgia, serif",
+                          fontSize: "22px", fontWeight: 500,
+                          color: "var(--foreground)", letterSpacing: "-0.01em",
+                          marginBottom: "10px", lineHeight: 1.2,
+                        }}>
+                          {rug.title}
+                        </h3>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                          <span style={{ color: "var(--gold)", fontSize: "13px", letterSpacing: "2px" }}>★★★★★</span>
+                          <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>({rug.reviews || 0})</span>
+                        </div>
+                        {/* Dynamic pricing from shared engine */}
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--primary)", letterSpacing: "-0.02em" }}>
+                            From {pricing.priceLabel}
+                          </span>
+                          {pricing.discountedPrice !== null && (
+                            <span style={{ fontSize: "13px", color: "#bbb", textDecoration: "line-through" }}>
+                              ${Math.round(pricing.basePrice)}
+                            </span>
+                          )}
+                        </div>
+                        {pricing.discountedPrice !== null && (
+                          <p style={{ fontSize: "11px", color: "#dc2626", fontWeight: 600, marginTop: "4px" }}>
+                            Save {pricing.savingsPct}% · {discount?.label}
+                          </p>
+                        )}
+                        <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginTop: "4px" }}>
+                          For 5×8 ft · {pricing.perSqftLabel}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

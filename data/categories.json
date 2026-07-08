@@ -1,0 +1,6 @@
+[
+  {"id":"hand-knotted","name":"Hand Knotted","slug":"hand-knotted","description":"Master artisan hand knotted rugs","image":"/images/rug1.png","productCount":0,"active":true},
+  {"id":"hand-tufted","name":"Hand Tufted","slug":"hand-tufted","description":"Premium hand tufted rugs","image":"/images/rug2.png","productCount":0,"active":true},
+  {"id":"durrie","name":"Durrie","slug":"durrie","description":"Flat weave durrie rugs","image":"/images/rug6.png","productCount":0,"active":true},
+  {"id":"jute","name":"Jute","slug":"jute","description":"Natural jute rugs","image":"/images/rug8.jpeg","productCount":0,"active":true}
+]
