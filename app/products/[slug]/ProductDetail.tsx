@@ -4,7 +4,11 @@ import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "../../data/products";
-import { sizes, constructionToRugType, computePrice, parseCustomSqft, formatSqft } from "../../lib/pricing";
+import {
+  constructionToRugType, computePrice, parseCustomSqft, formatSqft,
+  groupSizesByShape, SHAPE_ORDER,
+  type SizeMasterItem, type PricingItem,
+} from "../../lib/pricing";
 
 const WA_BASE = "https://wa.me/918416919470";
 
@@ -12,7 +16,6 @@ interface Props {
   product: Product;
   relatedProducts: Product[];
 }
-
 interface DiscountConfig {
   active: boolean;
   type: "percent" | "fixed";
@@ -22,7 +25,8 @@ interface DiscountConfig {
 
 export default function ProductDetail({ product, relatedProducts }: Props) {
   const [activeImage, setActiveImage] = useState(0);
-  const [selectedSize, setSelectedSize] = useState(sizes[4]?.name || sizes[0].name); // 5×8 default
+  const [shapeTab, setShapeTab] = useState("Rectangular");
+  const [selectedSizeId, setSelectedSizeId] = useState("");
   const [customSize, setCustomSize] = useState(false);
   const [customW, setCustomW] = useState("");
   const [customH, setCustomH] = useState("");
@@ -31,35 +35,78 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", country: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
-  const [discount, setDiscount] = useState<DiscountConfig | null>(null);
 
-  // Load live discount from API
+  // Live data from API
+  const [discount, setDiscount] = useState<DiscountConfig | null>(null);
+  const [sizeMaster, setSizeMaster] = useState<SizeMasterItem[]>([]);
+  const [pricingData, setPricingData] = useState<PricingItem[]>([]);
+
+  // Fetch live discount
   useEffect(() => {
     fetch("/api/admin/discount")
-      .then((r) => r.json())
-      .then((d) => { if (d.active) setDiscount(d); })
+      .then(r => r.json())
+      .then(d => { if (d.active) setDiscount(d); })
       .catch(() => {});
   }, []);
 
+  // Fetch live Size Master
+  useEffect(() => {
+    fetch("/api/admin/sizes")
+      .then(r => r.json())
+      .then((data: SizeMasterItem[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSizeMaster(data);
+          // Default: first Rectangular size
+          const firstRect = data.find(s => s.shape === "Rectangular" && s.active !== false);
+          if (firstRect) setSelectedSizeId(firstRect.id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch live pricing
+  useEffect(() => {
+    fetch("/api/admin/pricing")
+      .then(r => r.json())
+      .then((data: PricingItem[]) => { if (Array.isArray(data)) setPricingData(data); })
+      .catch(() => {});
+  }, []);
+
+  const grouped = useMemo(() => groupSizesByShape(sizeMaster), [sizeMaster]);
+  const availableShapes = SHAPE_ORDER.filter(s => grouped[s] && grouped[s].length > 0);
+
+  // Keep shapeTab valid when sizeMaster loads
+  useEffect(() => {
+    if (availableShapes.length > 0 && !availableShapes.includes(shapeTab)) {
+      setShapeTab(availableShapes[0]);
+    }
+  }, [availableShapes, shapeTab]);
+
+  const currentGroupSizes = grouped[shapeTab] || [];
+
   const rugTypeId = constructionToRugType(product.construction);
 
-  // Compute price from selected size
+  // Live price computation
   const pricing = useMemo(() => {
     let sqft = 0;
     let sizeLabel = "";
+    let sizeInfo: SizeMasterItem | undefined;
 
     if (customSize && customW && customH) {
       sqft = parseCustomSqft(customW, customH);
       sizeLabel = `${customW} × ${customH} ft (Custom)`;
     } else {
-      const found = sizes.find((s) => s.name === selectedSize);
-      sqft = found?.sqft || 0;
-      sizeLabel = selectedSize;
+      sizeInfo = sizeMaster.find(s => s.id === selectedSizeId);
+      if (sizeInfo) { sqft = sizeInfo.sqft; sizeLabel = sizeInfo.name; }
     }
 
-    const result = computePrice(sqft, rugTypeId, 1.0, discount ? { enabled: true, type: discount.type, value: discount.value } : undefined);
-    return { ...result, sqft, sizeLabel };
-  }, [selectedSize, customSize, customW, customH, rugTypeId, discount]);
+    const result = computePrice(
+      sqft, rugTypeId, 1.0,
+      discount ? { enabled: true, type: discount.type, value: discount.value } : undefined,
+      pricingData.length > 0 ? pricingData : undefined
+    );
+    return { ...result, sqft, sizeLabel, sizeInfo };
+  }, [selectedSizeId, customSize, customW, customH, rugTypeId, discount, sizeMaster, pricingData]);
 
   const totalPrice = pricing.displayPrice * quantity;
   const totalLabel = pricing.sqft > 0 ? `$${Math.round(totalPrice).toLocaleString()}` : "—";
@@ -89,6 +136,28 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
     setSubmitted(true);
     setTimeout(() => { setInquiryOpen(false); setSubmitted(false); }, 3000);
   };
+
+  // ── Styles ──────────────────────────────────────────────────────────────────
+  const shapeTabStyle = (active: boolean) => ({
+    padding: "7px 18px",
+    borderRadius: "9999px",
+    border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
+    background: active ? "var(--primary)" : "transparent",
+    color: active ? "#fff" : "var(--foreground-muted)",
+    fontSize: "12px", fontWeight: 600 as const, cursor: "pointer" as const,
+    letterSpacing: "0.06em", transition: "all 0.2s ease",
+  });
+
+  const sizeBtnStyle = (active: boolean) => ({
+    padding: "8px 10px",
+    border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
+    borderRadius: "8px",
+    background: active ? "var(--primary)" : "white",
+    color: active ? "#fff" : "var(--foreground)",
+    fontSize: "11px", fontWeight: 500 as const, cursor: "pointer" as const,
+    transition: "all 0.18s ease", textAlign: "left" as const,
+    lineHeight: 1.35, minWidth: "80px",
+  });
 
   return (
     <>
@@ -152,7 +221,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                     position: "absolute", bottom: "16px", left: "16px",
                     background: "#dc2626", color: "#fff",
                     padding: "6px 14px", borderRadius: "9999px",
-                    fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em",
+                    fontSize: "11px", fontWeight: 700,
                   }}>
                     {discount.label} {discount.type === "percent" ? `${discount.value}% OFF` : `$${discount.value} OFF`}
                   </div>
@@ -161,16 +230,12 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "16px" }}>
                 {product.images.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImage(i)}
-                    style={{
-                      width: "88px", height: "88px", padding: 0,
-                      border: `2px solid ${activeImage === i ? "var(--primary)" : "var(--border-light)"}`,
-                      borderRadius: "var(--radius-md)", overflow: "hidden",
-                      cursor: "pointer", background: "none", transition: "border-color 0.2s ease", flexShrink: 0,
-                    }}
-                  >
+                  <button key={i} onClick={() => setActiveImage(i)} style={{
+                    width: "88px", height: "88px", padding: 0,
+                    border: `2px solid ${activeImage === i ? "var(--primary)" : "var(--border-light)"}`,
+                    borderRadius: "var(--radius-md)", overflow: "hidden",
+                    cursor: "pointer", background: "none", flexShrink: 0,
+                  }}>
                     <div style={{ position: "relative", width: "100%", height: "100%" }}>
                       <Image src={img} alt={`View ${i + 1}`} fill sizes="88px" style={{ objectFit: "cover" }} />
                     </div>
@@ -194,8 +259,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                 {product.inStock && (
                   <span style={{
                     background: "#d1fae5", color: "#065f46",
-                    padding: "4px 14px", borderRadius: "9999px", fontSize: "11px",
-                    fontWeight: 700, letterSpacing: "0.08em",
+                    padding: "4px 14px", borderRadius: "9999px", fontSize: "11px", fontWeight: 700,
                   }}>
                     ✓ In Stock
                   </span>
@@ -209,17 +273,15 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
               }}>
                 {product.title}
               </h1>
-
               <p style={{ color: "var(--primary)", fontSize: "13px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "16px" }}>
                 {product.subtitle}
               </p>
-
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "24px" }}>
                 <span style={{ color: "var(--gold)", fontSize: "15px", letterSpacing: "2px" }}>★★★★★</span>
                 <span style={{ fontSize: "13px", color: "var(--foreground-muted)" }}>({product.reviews} reviews)</span>
               </div>
 
-              {/* ── SIZE SELECTOR (same engine as Custom Rug) ── */}
+              {/* ── SIZE SELECTOR — Full Size Master, grouped by shape ── */}
               <div style={{ marginBottom: "20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--foreground-muted)" }}>
@@ -230,7 +292,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                     style={{
                       background: customSize ? "var(--primary)" : "transparent",
                       color: customSize ? "#fff" : "var(--primary)",
-                      border: `1.5px solid var(--primary)`,
+                      border: "1.5px solid var(--primary)",
                       borderRadius: "9999px", padding: "4px 14px",
                       fontSize: "11px", fontWeight: 700, cursor: "pointer",
                       letterSpacing: "0.08em", textTransform: "uppercase",
@@ -240,57 +302,72 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   </button>
                 </div>
 
-                {customSize ? (
-                  <div style={{ display: "flex", gap: "12px", padding: "16px", background: "var(--surface-alt)", borderRadius: "var(--radius-lg)", border: "1.5px solid var(--border-green)" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", display: "block", marginBottom: "6px" }}>Width (ft)</label>
-                      <input
-                        type="number" placeholder="e.g. 8" min="1" max="30"
-                        value={customW} onChange={(e) => setCustomW(e.target.value)}
-                        style={{
-                          width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)",
-                          borderRadius: "var(--radius-md)", fontSize: "15px", outline: "none",
-                          background: "white",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", display: "block", marginBottom: "6px" }}>Length (ft)</label>
-                      <input
-                        type="number" placeholder="e.g. 12" min="1" max="50"
-                        value={customH} onChange={(e) => setCustomH(e.target.value)}
-                        style={{
-                          width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)",
-                          borderRadius: "var(--radius-md)", fontSize: "15px", outline: "none",
-                          background: "white",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {sizes.slice(0, 20).map((s) => (
-                      <button
-                        key={s.name}
-                        onClick={() => setSelectedSize(s.name)}
-                        style={{
-                          padding: "7px 14px",
-                          border: `1.5px solid ${selectedSize === s.name ? "var(--primary)" : "var(--border)"}`,
-                          borderRadius: "var(--radius-md)",
-                          background: selectedSize === s.name ? "var(--primary)" : "transparent",
-                          color: selectedSize === s.name ? "#fff" : "var(--foreground)",
-                          fontSize: "12px", fontWeight: 500, cursor: "pointer",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        {s.name}
+                {/* Shape tabs */}
+                {!customSize && availableShapes.length > 1 && (
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+                    {availableShapes.map(sh => (
+                      <button key={sh} onClick={() => setShapeTab(sh)} style={shapeTabStyle(shapeTab === sh)}>
+                        {sh === "Rectangular" ? "▬ Rectangular" : sh === "Runner" ? "▰ Runner" : "● Round"}
                       </button>
                     ))}
                   </div>
                 )}
+
+                {customSize ? (
+                  <div style={{
+                    display: "flex", gap: "12px", padding: "16px",
+                    background: "var(--surface-alt)", borderRadius: "var(--radius-lg)",
+                    border: "1.5px solid var(--border-green)",
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", display: "block", marginBottom: "6px" }}>Width (ft)</label>
+                      <input type="number" placeholder="e.g. 8" min="1" max="30"
+                        value={customW} onChange={e => setCustomW(e.target.value)}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "15px", outline: "none", background: "white" }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", display: "block", marginBottom: "6px" }}>Length (ft)</label>
+                      <input type="number" placeholder="e.g. 12" min="1" max="50"
+                        value={customH} onChange={e => setCustomH(e.target.value)}
+                        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "15px", outline: "none", background: "white" }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Size grid — each button shows size / cm / sqft */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "8px" }}>
+                      {currentGroupSizes.map(s => (
+                        <button key={s.id} onClick={() => setSelectedSizeId(s.id)} style={sizeBtnStyle(selectedSizeId === s.id)}>
+                          <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "2px" }}>{s.name}</div>
+                          <div style={{ fontSize: "9px", opacity: 0.75, lineHeight: 1.3 }}>{s.cm}</div>
+                          <div style={{ fontSize: "10px", color: selectedSizeId === s.id ? "rgba(255,255,255,0.85)" : "var(--primary)", fontWeight: 600, marginTop: "2px" }}>
+                            {s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Selected size details */}
+                    {pricing.sizeInfo && (
+                      <div style={{
+                        marginTop: "10px", padding: "8px 14px",
+                        background: "var(--primary-pale)", borderRadius: "var(--radius-md)",
+                        fontSize: "12px", color: "var(--primary)", fontWeight: 600,
+                        display: "flex", gap: "16px", flexWrap: "wrap",
+                      }}>
+                        <span>{pricing.sizeInfo.name}</span>
+                        <span>·</span>
+                        <span>{pricing.sizeInfo.cm}</span>
+                        <span>·</span>
+                        <span>{pricing.sizeInfo.sqft % 1 === 0 ? pricing.sizeInfo.sqft : pricing.sizeInfo.sqft.toFixed(1)} sq.ft</span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
-              {/* ── LIVE PRICE (from shared pricing engine) ── */}
+              {/* ── LIVE PRICE ── */}
               <div style={{
                 marginBottom: "24px", padding: "20px 24px",
                 background: "linear-gradient(135deg, var(--primary-pale) 0%, var(--sage-pale) 100%)",
@@ -334,7 +411,6 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                 )}
               </div>
 
-              {/* Description */}
               <p style={{ fontSize: "16px", lineHeight: 1.8, color: "var(--foreground-muted)", fontWeight: 300, marginBottom: "28px" }}>
                 {product.description}
               </p>
@@ -345,29 +421,9 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   Quantity
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: "0", width: "fit-content" }}>
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    style={{
-                      width: "44px", height: "44px", border: "1.5px solid var(--border)", borderRight: "none",
-                      borderRadius: "var(--radius-md) 0 0 var(--radius-md)",
-                      background: "var(--surface)", cursor: "pointer", fontSize: "18px", color: "var(--foreground)",
-                    }}
-                  >−</button>
-                  <div style={{
-                    width: "64px", height: "44px", border: "1.5px solid var(--border)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "16px", fontWeight: 600, color: "var(--foreground)",
-                  }}>
-                    {quantity}
-                  </div>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    style={{
-                      width: "44px", height: "44px", border: "1.5px solid var(--border)", borderLeft: "none",
-                      borderRadius: "0 var(--radius-md) var(--radius-md) 0",
-                      background: "var(--surface)", cursor: "pointer", fontSize: "18px", color: "var(--foreground)",
-                    }}
-                  >+</button>
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ width: "44px", height: "44px", border: "1.5px solid var(--border)", borderRight: "none", borderRadius: "var(--radius-md) 0 0 var(--radius-md)", background: "var(--surface)", cursor: "pointer", fontSize: "18px", color: "var(--foreground)" }}>−</button>
+                  <div style={{ width: "64px", height: "44px", border: "1.5px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: 600, color: "var(--foreground)" }}>{quantity}</div>
+                  <button onClick={() => setQuantity(quantity + 1)} style={{ width: "44px", height: "44px", border: "1.5px solid var(--border)", borderLeft: "none", borderRadius: "0 var(--radius-md) var(--radius-md) 0", background: "var(--surface)", cursor: "pointer", fontSize: "18px", color: "var(--foreground)" }}>+</button>
                 </div>
                 {quantity > 1 && pricing.sqft > 0 && (
                   <p style={{ fontSize: "13px", color: "var(--primary)", fontWeight: 600, marginTop: "8px" }}>
@@ -384,35 +440,25 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                     border: "none", borderRadius: "var(--radius-full)", fontWeight: 700, fontSize: "13px",
                     letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                    boxShadow: "0 4px 16px rgba(37,211,102,0.3)", transition: "all 0.2s ease",
+                    boxShadow: "0 4px 16px rgba(37,211,102,0.3)",
                   }}>
-                    <svg viewBox="0 0 24 24" fill="white" width="18" height="18">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                    </svg>
-                    Chat on WhatsApp
-                    {pricing.sqft > 0 && <span>· {pricing.priceLabel}</span>}
+                    <svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                    Chat on WhatsApp{pricing.sqft > 0 && <span>· {pricing.priceLabel}</span>}
                   </button>
                 </a>
-
-                <button
-                  onClick={() => setInquiryOpen(true)}
-                  style={{
-                    width: "100%", padding: "16px", background: "var(--primary)", color: "#fff",
-                    border: "none", borderRadius: "var(--radius-full)", fontWeight: 700, fontSize: "13px",
-                    letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                    boxShadow: "0 4px 16px rgba(74,92,58,0.3)", transition: "all 0.2s ease",
-                  }}
-                >
+                <button onClick={() => setInquiryOpen(true)} style={{
+                  width: "100%", padding: "16px", background: "var(--primary)", color: "#fff",
+                  border: "none", borderRadius: "var(--radius-full)", fontWeight: 700, fontSize: "13px",
+                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+                }}>
                   Send Website Inquiry
                 </button>
-
                 <Link href="/custom-rug" style={{ textDecoration: "none" }}>
                   <button style={{
                     width: "100%", padding: "15px", background: "transparent",
                     color: "var(--primary)", border: "1.5px solid var(--primary)",
                     borderRadius: "var(--radius-full)", fontWeight: 700, fontSize: "13px",
                     letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                    transition: "all 0.2s ease",
                   }}>
                     Design Custom Version
                   </button>
@@ -429,12 +475,12 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                     { label: "Shape", value: product.shape },
                     { label: "Origin", value: product.origin },
                     { label: "Lead Time", value: product.leadTime },
-                  ].map(({ label, value }) => (
+                  ].map(({ label, value }) => value ? (
                     <div key={label}>
                       <div style={{ fontSize: "10px", color: "var(--foreground-muted)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>{label}</div>
                       <div style={{ fontSize: "14px", color: "var(--foreground)", fontWeight: 500 }}>{value}</div>
                     </div>
-                  ))}
+                  ) : null)}
                 </div>
               </div>
 
@@ -443,7 +489,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   { icon: "🚚", text: "Free Worldwide Shipping" },
                   { icon: "✋", text: "100% Handmade" },
                   { icon: "📐", text: "Any Custom Size" },
-                ].map((item) => (
+                ].map(item => (
                   <div key={item.text} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--foreground-muted)" }}>
                     <span style={{ fontSize: "16px" }}>{item.icon}</span>
                     {item.text}
@@ -484,7 +530,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
         </div>
       </section>
 
-      {/* Available Sizes & Pricing Table */}
+      {/* Complete Pricing Table */}
       <section style={{ padding: "80px 0", background: "var(--background)" }}>
         <div className="container">
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -493,54 +539,66 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
               Sizes & Pricing
             </h2>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
-              <thead>
-                <tr style={{ background: "var(--primary)" }}>
-                  {["Size", "Dimensions (cm)", "Area (sq.ft)", "Price/sq.ft", "Total Price", ""].map((h) => (
-                    <th key={h} style={{ padding: "14px 20px", color: "#fff", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "left" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sizes.slice(0, 18).map((s, i) => {
-                  const p = computePrice(s.sqft, rugTypeId, 1.0, discount ? { enabled: true, type: discount.type, value: discount.value } : undefined);
-                  return (
-                    <tr
-                      key={s.name}
-                      style={{ background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)", borderBottom: "1px solid var(--border-light)" }}
-                    >
-                      <td style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "var(--foreground)" }}>{s.name}</td>
-                      <td style={{ padding: "12px 20px", fontSize: "13px", color: "var(--foreground-muted)" }}>{s.cm}</td>
-                      <td style={{ padding: "12px 20px", fontSize: "13px", color: "var(--foreground-muted)" }}>{formatSqft(s.sqft)}</td>
-                      <td style={{ padding: "12px 20px", fontSize: "13px", color: "var(--foreground-muted)" }}>{p.perSqftLabel}</td>
-                      <td style={{ padding: "12px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ fontSize: "16px", fontWeight: 700, color: "var(--primary)" }}>{p.priceLabel}</span>
-                          {p.discountedPrice !== null && (
-                            <span style={{ fontSize: "13px", color: "#aaa", textDecoration: "line-through" }}>${Math.round(p.basePrice)}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ padding: "12px 20px" }}>
-                        <button
-                          onClick={() => { setSelectedSize(s.name); setCustomSize(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                          style={{
-                            padding: "6px 16px", background: "var(--primary)", color: "#fff",
-                            border: "none", borderRadius: "9999px", fontSize: "11px",
-                            fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em",
-                          }}
-                        >
-                          Select
-                        </button>
-                      </td>
+
+          {/* Table per shape group */}
+          {SHAPE_ORDER.filter(sh => grouped[sh]?.length > 0).map(sh => (
+            <div key={sh} style={{ marginBottom: "40px" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--primary)", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ width: "32px", height: "1px", background: "var(--primary)", display: "inline-block" }} />
+                {sh}
+                <span style={{ width: "32px", height: "1px", background: "var(--primary)", display: "inline-block" }} />
+              </h3>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                  <thead>
+                    <tr style={{ background: "var(--primary)" }}>
+                      {["Size", "Dimensions (cm)", "Area (sq.ft)", "Price/sq.ft", "Total Price", ""].map(h => (
+                        <th key={h} style={{ padding: "12px 16px", color: "#fff", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "left" }}>{h}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ textAlign: "center", marginTop: "20px", fontSize: "13px", color: "var(--foreground-muted)" }}>
+                  </thead>
+                  <tbody>
+                    {grouped[sh].map((s, i) => {
+                      const p = computePrice(
+                        s.sqft, rugTypeId, 1.0,
+                        discount ? { enabled: true, type: discount.type, value: discount.value } : undefined,
+                        pricingData.length > 0 ? pricingData : undefined
+                      );
+                      return (
+                        <tr key={s.id} style={{ background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)", borderBottom: "1px solid var(--border-light)" }}>
+                          <td style={{ padding: "11px 16px", fontSize: "14px", fontWeight: 600, color: "var(--foreground)" }}>{s.name}</td>
+                          <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{s.cm}</td>
+                          <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft</td>
+                          <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{p.perSqftLabel}</td>
+                          <td style={{ padding: "11px 16px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--primary)" }}>{p.priceLabel}</span>
+                              {p.discountedPrice !== null && <span style={{ fontSize: "13px", color: "#aaa", textDecoration: "line-through" }}>${Math.round(p.basePrice)}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: "11px 16px" }}>
+                            <button
+                              onClick={() => {
+                                setShapeTab(s.shape);
+                                setSelectedSizeId(s.id);
+                                setCustomSize(false);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              style={{ padding: "5px 14px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: "9999px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
+                            >
+                              Select
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "var(--foreground-muted)" }}>
             Need a different size? Use the custom size option above, or <Link href="/contact" style={{ color: "var(--primary)", fontWeight: 600 }}>contact us</Link>.
           </p>
         </div>
@@ -557,19 +615,15 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
               </h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "24px" }}>
-              {relatedProducts.map((rel) => (
+              {relatedProducts.map(rel => (
                 <Link key={rel.id} href={`/products/${rel.slug}`} style={{ textDecoration: "none" }}>
                   <div className="card" style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", cursor: "pointer" }}>
                     <div style={{ position: "relative", height: "240px", overflow: "hidden" }}>
                       <Image src={rel.image} alt={rel.title} fill sizes="25vw" style={{ objectFit: "cover", transition: "transform 0.5s ease" }} />
                     </div>
                     <div style={{ padding: "20px" }}>
-                      <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
-                        {rel.category}
-                      </p>
-                      <h3 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "20px", fontWeight: 500, color: "var(--foreground)", marginBottom: "8px" }}>
-                        {rel.title}
-                      </h3>
+                      <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>{rel.category}</p>
+                      <h3 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "20px", fontWeight: 500, color: "var(--foreground)", marginBottom: "8px" }}>{rel.title}</h3>
                       <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--primary)" }}>View Pricing →</span>
                     </div>
                   </div>
@@ -582,26 +636,18 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
 
       {/* Zoom Modal */}
       {zoomOpen && (
-        <div
-          onClick={() => setZoomOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", padding: "24px" }}
-        >
+        <div onClick={() => setZoomOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", padding: "24px" }}>
           <div style={{ position: "relative", width: "min(90vw, 700px)", aspectRatio: "4/5" }}>
             <Image src={product.images[activeImage] || product.image} alt={product.title} fill sizes="90vw" style={{ objectFit: "contain" }} />
           </div>
-          <button
-            onClick={() => setZoomOpen(false)}
-            style={{ position: "absolute", top: "20px", right: "20px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: "50%", width: "44px", height: "44px", cursor: "pointer", fontSize: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}
-          >×</button>
+          <button onClick={() => setZoomOpen(false)} style={{ position: "absolute", top: "20px", right: "20px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: "50%", width: "44px", height: "44px", cursor: "pointer", fontSize: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
       )}
 
       {/* Inquiry Modal */}
       {inquiryOpen && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 9997, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setInquiryOpen(false); }}
-        >
+        <div style={{ position: "fixed", inset: 0, zIndex: 9997, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          onClick={e => { if (e.target === e.currentTarget) setInquiryOpen(false); }}>
           <div style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", padding: "40px", width: "min(520px, 100%)", boxShadow: "var(--shadow-xl)", maxHeight: "90vh", overflowY: "auto" }}>
             {submitted ? (
               <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -627,20 +673,17 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   ].map(({ key, label, type, placeholder, required }) => (
                     <div key={key}>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--foreground-muted)", marginBottom: "6px" }}>{label}</label>
-                      <input
-                        type={type} placeholder={placeholder} required={required}
+                      <input type={type} placeholder={placeholder} required={required}
                         value={form[key as keyof typeof form]}
-                        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                        onChange={e => setForm({ ...form, [key]: e.target.value })}
                         style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", outline: "none" }}
                       />
                     </div>
                   ))}
                   <div>
                     <label style={{ display: "block", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--foreground-muted)", marginBottom: "6px" }}>Message</label>
-                    <textarea
-                      rows={3} placeholder="Any additional requirements, questions, or design specifications..."
-                      value={form.message}
-                      onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    <textarea rows={3} placeholder="Any additional requirements..."
+                      value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
                       style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", outline: "none", resize: "vertical" }}
                     />
                   </div>

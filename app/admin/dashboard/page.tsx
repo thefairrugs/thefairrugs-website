@@ -36,15 +36,17 @@ interface DiscountConfig {
 
 // ─── Sidebar sections ────────────────────────────────────────────────────────
 const SECTIONS = [
-  { id: "dashboard",   label: "Dashboard",       icon: "📊" },
-  { id: "products",    label: "Products",         icon: "🧶" },
-  { id: "add-product", label: "Add Product",      icon: "➕" },
-  { id: "categories",  label: "Categories",       icon: "📂" },
-  { id: "discount",    label: "Discount / Sale",  icon: "🏷️" },
-  { id: "inquiries",   label: "All Inquiries",    icon: "📋" },
-  { id: "b2b",         label: "B2B Inquiries",    icon: "🤝" },
-  { id: "bulk",        label: "Bulk Import/Export",icon: "📦" },
-  { id: "settings",    label: "Settings",         icon: "⚙️" },
+  { id: "dashboard",   label: "Dashboard",        icon: "📊" },
+  { id: "products",    label: "Products",          icon: "🧶" },
+  { id: "add-product", label: "Add Product",       icon: "➕" },
+  { id: "categories",  label: "Categories",        icon: "📂" },
+  { id: "sizes",       label: "Size Master",        icon: "📐" },
+  { id: "pricing",     label: "Pricing",            icon: "💲" },
+  { id: "discount",    label: "Discount / Sale",   icon: "🏷️" },
+  { id: "inquiries",   label: "All Inquiries",     icon: "📋" },
+  { id: "b2b",         label: "B2B Inquiries",     icon: "🤝" },
+  { id: "bulk",        label: "Bulk Import/Export", icon: "📦" },
+  { id: "settings",    label: "Settings",          icon: "⚙️" },
 ];
 
 const ADMIN_KEY_LS = "admin_token";
@@ -128,6 +130,9 @@ export default function AdminDashboard() {
     if (["dashboard", "categories"].includes(section)) fetchCategories();
     if (section === "discount") fetchDiscount();
   }, [section, fetchInquiries, fetchProducts, fetchCategories, fetchDiscount]);
+
+  // ─── Section-level label lookup (include new sections) ─────────────────────
+  const sectionLabel = SECTIONS.find((s) => s.id === section)?.label ?? "Dashboard";
 
   const handleLogout = () => {
     localStorage.removeItem(ADMIN_KEY_LS);
@@ -218,7 +223,7 @@ export default function AdminDashboard() {
         {/* Topbar */}
         <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "0 32px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <h1 style={{ fontSize: "18px", fontWeight: 700, color: "#1c1c1a", letterSpacing: "-0.01em" }}>
-            {SECTIONS.find((s) => s.id === section)?.label || "Dashboard"}
+            {sectionLabel}
           </h1>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             {stats.newInquiries > 0 && (
@@ -236,6 +241,8 @@ export default function AdminDashboard() {
           {section === "products" && <ProductsSection products={products} onRefresh={fetchProducts} />}
           {section === "add-product" && <AddProductSection categories={categories} onSaved={() => { setSection("products"); fetchProducts(); }} />}
           {section === "categories" && <CategoriesSection categories={categories} onRefresh={fetchCategories} />}
+          {section === "sizes"    && <SizeMasterSection />}
+          {section === "pricing"  && <PricingSection />}
           {section === "discount" && <DiscountSection discount={discount} onSaved={fetchDiscount} />}
           {section === "inquiries" && <InquiriesSection inquiries={inquiries} loading={loading} onRefresh={fetchInquiries} filter="all" />}
           {section === "b2b" && <InquiriesSection inquiries={inquiries.filter((i) => i.type === "b2b")} loading={loading} onRefresh={fetchInquiries} filter="b2b" />}
@@ -1328,6 +1335,327 @@ function SettingsSection({ adminEmail, onEmailChange }: { adminEmail: string; on
           <li>All admin APIs require the x-admin-key header or cookie</li>
           <li>Change your password immediately after deployment</li>
         </ul>
+      </div>
+    </div>
+  );
+}
+
+// ─── Size Master Section ────────────────────────────────────────────────────
+interface SizeMasterItem {
+  id: string; shape: string; name: string; cm: string; sqft: number; active: boolean;
+}
+
+const SHAPE_ORDER_ADMIN = ["Rectangular", "Runner", "Round"];
+
+function SizeMasterSection() {
+  const [sizes, setSizes] = useState<SizeMasterItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeShape, setActiveShape] = useState("Rectangular");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editItem, setEditItem] = useState<SizeMasterItem | null>(null);
+  const [form, setForm] = useState({ shape: "Rectangular", name: "", cm: "", sqft: "" });
+  const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchSizes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/sizes", { headers: { "x-admin-key": getAdminKey() } });
+      const d = await r.json();
+      setSizes(Array.isArray(d) ? d : []);
+    } catch { setSizes([]); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchSizes(); }, [fetchSizes]);
+
+  const handleToggleActive = async (item: SizeMasterItem) => {
+    await fetch("/api/admin/sizes", {
+      method: "PUT", headers: adminHeaders(),
+      body: JSON.stringify({ ...item, active: !item.active }),
+    });
+    fetchSizes();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this size? It will be removed everywhere.")) return;
+    await fetch(`/api/admin/sizes?id=${id}`, { method: "DELETE", headers: { "x-admin-key": getAdminKey() } });
+    fetchSizes();
+  };
+
+  const handleSave = async () => {
+    if (!form.name || !form.cm || !form.sqft) { setMsg("❌ Please fill in all fields"); return; }
+    setSaving(true);
+    const payload: Partial<SizeMasterItem> & { shape: string; name: string; cm: string; sqft: number; active: boolean } = {
+      shape: form.shape, name: form.name, cm: form.cm,
+      sqft: parseFloat(form.sqft), active: true,
+    };
+    try {
+      if (editItem) {
+        await fetch("/api/admin/sizes", { method: "PUT", headers: adminHeaders(), body: JSON.stringify({ ...editItem, ...payload }) });
+        setMsg("✅ Size updated!");
+      } else {
+        await fetch("/api/admin/sizes", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload) });
+        setMsg("✅ Size added!");
+      }
+      setForm({ shape: "Rectangular", name: "", cm: "", sqft: "" });
+      setShowAddForm(false); setEditItem(null);
+      fetchSizes();
+    } catch { setMsg("❌ Error saving size"); }
+    setSaving(false);
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const startEdit = (item: SizeMasterItem) => {
+    setEditItem(item);
+    setForm({ shape: item.shape, name: item.name, cm: item.cm, sqft: String(item.sqft) });
+    setShowAddForm(true);
+    setActiveShape(item.shape);
+  };
+
+  const grouped = SHAPE_ORDER_ADMIN.reduce<Record<string, SizeMasterItem[]>>((acc, sh) => {
+    acc[sh] = sizes.filter((s) => s.shape === sh);
+    return acc;
+  }, {});
+
+  const SHAPE_ICONS_ADM: Record<string, string> = { Rectangular: "▬", Runner: "▰", Round: "●" };
+
+  return (
+    <div style={{ maxWidth: "960px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+        <div>
+          <p style={{ fontSize: "14px", color: "#5c5a52", marginBottom: "4px" }}>
+            {sizes.length} total sizes · {sizes.filter((s) => s.active).length} active
+          </p>
+          <p style={{ fontSize: "12px", color: "#8a8878" }}>Changes apply instantly across the entire website (Product pages + Custom Rugs page)</p>
+        </div>
+        <button onClick={() => { setShowAddForm(!showAddForm); setEditItem(null); setForm({ shape: activeShape, name: "", cm: "", sqft: "" }); }}
+          style={{ padding: "10px 20px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>
+          + Add Size
+        </button>
+      </div>
+
+      {msg && (
+        <div style={{ padding: "10px 14px", background: msg.startsWith("✅") ? "#d1fae5" : "#fee2e2", borderRadius: "8px", marginBottom: "16px", fontSize: "13px", fontWeight: 600, color: msg.startsWith("✅") ? "#065f46" : "#dc2626" }}>{msg}</div>
+      )}
+
+      {/* Add/Edit Form */}
+      {showAddForm && (
+        <div style={{ background: "#fff", borderRadius: "12px", border: "2px solid #4a5c3a", padding: "24px", marginBottom: "20px" }}>
+          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>
+            {editItem ? `Edit: ${editItem.name}` : "Add New Size"}
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+            <div>
+              <label style={labelStyle}>Shape</label>
+              <select value={form.shape} onChange={(e) => setForm({ ...form, shape: e.target.value })} style={selectStyle}>
+                {SHAPE_ORDER_ADMIN.map((sh) => <option key={sh} value={sh}>{sh}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Size Label (ft) *</label>
+              <input type="text" placeholder="e.g. 8 x 10 ft" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Size (cm) *</label>
+              <input type="text" placeholder="e.g. 243 x 304 cm" value={form.cm} onChange={(e) => setForm({ ...form, cm: e.target.value })} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Sq.ft *</label>
+              <input type="number" step="0.1" min="1" placeholder="e.g. 80" value={form.sqft} onChange={(e) => setForm({ ...form, sqft: e.target.value })} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={handleSave} disabled={saving} style={{ padding: "10px 24px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>
+              {saving ? "Saving..." : editItem ? "Update Size" : "Add Size"}
+            </button>
+            <button onClick={() => { setShowAddForm(false); setEditItem(null); }}
+              style={{ padding: "10px 20px", background: "#f0ece4", border: "none", borderRadius: "8px", cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Shape Tabs */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        {SHAPE_ORDER_ADMIN.map((sh) => (
+          <button key={sh} onClick={() => setActiveShape(sh)}
+            style={{ padding: "9px 20px", borderRadius: "8px", border: "none", fontWeight: 700, fontSize: "13px", cursor: "pointer", background: activeShape === sh ? "#4a5c3a" : "#f0ece4", color: activeShape === sh ? "#fff" : "#5c5a52" }}>
+            {SHAPE_ICONS_ADM[sh]} {sh} ({grouped[sh]?.length ?? 0})
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#5c5a52" }}>Loading...</div>
+      ) : (
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8f6f0", borderBottom: "1px solid #e5e7eb" }}>
+                {["Size (ft)", "Size (cm)", "Sq.ft", "Shape", "Status", "Actions"].map((h) => (
+                  <th key={h} style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#5c5a52", textAlign: "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(grouped[activeShape] ?? []).map((item, i) => (
+                <tr key={item.id} style={{ borderBottom: "1px solid #f0ece4", background: i % 2 === 0 ? "#fff" : "#fafaf8" }}>
+                  <td style={{ padding: "11px 16px", fontSize: "14px", fontWeight: 700, color: "#1c1c1a" }}>{item.name}</td>
+                  <td style={{ padding: "11px 16px", fontSize: "13px", color: "#5c5a52" }}>{item.cm}</td>
+                  <td style={{ padding: "11px 16px", fontSize: "13px", fontWeight: 700, color: "#4a5c3a" }}>{item.sqft} sq.ft</td>
+                  <td style={{ padding: "11px 16px", fontSize: "12px", color: "#7a8f6a" }}>{item.shape}</td>
+                  <td style={{ padding: "11px 16px" }}>
+                    <button onClick={() => handleToggleActive(item)}
+                      style={{ padding: "3px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: 700, border: "none", cursor: "pointer", background: item.active ? "#d1fae5" : "#f1f5f9", color: item.active ? "#065f46" : "#64748b" }}>
+                      {item.active ? "Active" : "Hidden"}
+                    </button>
+                  </td>
+                  <td style={{ padding: "11px 16px" }}>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button onClick={() => startEdit(item)} style={{ padding: "5px 12px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "6px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}>Edit</button>
+                      <button onClick={() => handleDelete(item.id)} style={{ padding: "5px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {(grouped[activeShape] ?? []).length === 0 && (
+                <tr><td colSpan={6} style={{ padding: "32px", textAlign: "center", color: "#5c5a52" }}>No {activeShape} sizes yet. Click "+ Add Size" to add one.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Info */}
+      <div style={{ marginTop: "20px", padding: "16px 20px", background: "#f0f4e8", borderRadius: "12px", border: "1px solid #c8d4b8" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#4a5c3a", marginBottom: "6px" }}>📐 About the Size Master</p>
+        <p style={{ fontSize: "12px", color: "#5c5a52", lineHeight: 1.7 }}>
+          All sizes here appear on both <strong>Product Detail pages</strong> and the <strong>Custom Rugs calculator</strong>.
+          Toggling a size to Hidden removes it from customer view. Deleting a size is permanent.
+          Adding a new size makes it instantly available for customers to select.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pricing Section ──────────────────────────────────────────────────────────
+interface PricingItemAdmin {
+  id: string; name: string; pricePerSqft: number;
+}
+
+function PricingSection() {
+  const [pricing, setPricing] = useState<PricingItemAdmin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+
+  const fetchPricing = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/pricing", { headers: { "x-admin-key": getAdminKey() } });
+      const d = await r.json();
+      if (Array.isArray(d)) {
+        setPricing(d);
+        const init: Record<string, string> = {};
+        d.forEach((p: PricingItemAdmin) => { init[p.id] = String(p.pricePerSqft); });
+        setEditValues(init);
+      }
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchPricing(); }, [fetchPricing]);
+
+  const handleSave = async (id: string) => {
+    const newPrice = parseFloat(editValues[id]);
+    if (isNaN(newPrice) || newPrice <= 0) { setMsg("❌ Enter a valid price"); return; }
+    setSaving(id);
+    try {
+      await fetch("/api/admin/pricing", {
+        method: "PUT", headers: adminHeaders(),
+        body: JSON.stringify({ id, pricePerSqft: newPrice }),
+      });
+      setMsg(`✅ ${pricing.find((p) => p.id === id)?.name} price updated to $${newPrice}/sq.ft`);
+      fetchPricing();
+    } catch { setMsg("❌ Error saving price"); }
+    setSaving(null);
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const PREVIEW_SIZES = [15, 35, 80, 120];
+  const PREVIEW_LABELS = ["3×5 ft", "5×7 ft", "8×10 ft", "10×12 ft"];
+
+  return (
+    <div style={{ maxWidth: "800px" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <p style={{ fontSize: "14px", color: "#5c5a52" }}>Set the base price per square foot for each rug type. All product prices update automatically.</p>
+      </div>
+
+      {msg && (
+        <div style={{ padding: "10px 14px", background: msg.startsWith("✅") ? "#d1fae5" : "#fee2e2", borderRadius: "8px", marginBottom: "16px", fontSize: "13px", fontWeight: 600, color: msg.startsWith("✅") ? "#065f46" : "#dc2626" }}>{msg}</div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#5c5a52" }}>Loading...</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {pricing.map((item) => (
+            <div key={item.id} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <div>
+                  <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1c1c1a" }}>{item.name}</h3>
+                  <p style={{ fontSize: "12px", color: "#7a8f6a", marginTop: "2px" }}>Current: ${item.pricePerSqft}/sq.ft</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "18px", fontWeight: 700, color: "#5c5a52" }}>$</span>
+                    <input
+                      type="number" step="0.5" min="1" max="500"
+                      value={editValues[item.id] ?? item.pricePerSqft}
+                      onChange={(e) => setEditValues({ ...editValues, [item.id]: e.target.value })}
+                      style={{ ...inputStyle, width: "100px", fontWeight: 700, fontSize: "16px" }}
+                    />
+                    <span style={{ fontSize: "13px", color: "#5c5a52", whiteSpace: "nowrap" }}>/sq.ft</span>
+                  </div>
+                  <button onClick={() => handleSave(item.id)} disabled={saving === item.id}
+                    style={{ padding: "10px 20px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {saving === item.id ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Price Preview */}
+              <div style={{ borderTop: "1px solid #f0ece4", paddingTop: "14px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#8a8878", marginBottom: "10px" }}>Price Preview at ${parseFloat(editValues[item.id] ?? String(item.pricePerSqft)).toFixed(2)}/sq.ft</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
+                  {PREVIEW_SIZES.map((sqft, i) => (
+                    <div key={sqft} style={{ padding: "12px", background: "#f8f6f0", borderRadius: "8px", textAlign: "center" }}>
+                      <p style={{ fontSize: "12px", fontWeight: 700, color: "#1c1c1a", marginBottom: "2px" }}>{PREVIEW_LABELS[i]}</p>
+                      <p style={{ fontSize: "11px", color: "#7a8f6a", marginBottom: "4px" }}>{sqft} sq.ft</p>
+                      <p style={{ fontSize: "15px", fontWeight: 700, color: "#4a5c3a" }}>
+                        ${Math.round(sqft * parseFloat(editValues[item.id] ?? String(item.pricePerSqft))).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Info */}
+      <div style={{ marginTop: "20px", padding: "16px 20px", background: "#f0f4e8", borderRadius: "12px", border: "1px solid #c8d4b8" }}>
+        <p style={{ fontSize: "13px", fontWeight: 700, color: "#4a5c3a", marginBottom: "6px" }}>💲 How Pricing Works</p>
+        <p style={{ fontSize: "12px", color: "#5c5a52", lineHeight: 1.7 }}>
+          <strong>Price = Sq.ft × Price/sq.ft × Pile Multiplier × (1 - Discount%)</strong><br />
+          Change a price here → every product page and the Custom Rugs calculator instantly reflect the new price.
+          Pile height adjustments: Flat Weave ×0.85, Low ×0.95, Medium ×1.00, High ×1.15, Shaggy ×1.25.
+          Use the <strong>Discount / Sale</strong> section to apply a global sitewide discount on top.
+        </p>
       </div>
     </div>
   );
