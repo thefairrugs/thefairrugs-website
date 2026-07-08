@@ -196,11 +196,14 @@ export default function PriceCalculator() {
     fontSize: "13px", fontWeight: 700, flexShrink: 0,
   });
 
+  // Full label shown in collapsed section header: "3 x 5 ft — 91 x 152 cm (15 sq.ft)"
   const sizeDisplayLabel = useCustomSize
     ? customWidth && customHeight
-      ? `${customWidth} × ${customHeight} ft (custom)`
+      ? `${customWidth} × ${customHeight} ft (custom) · ${sqft > 0 ? sqft.toFixed(1) : "—"} sq.ft`
       : "Custom dimensions"
-    : currentSize?.name ?? "—";
+    : currentSize
+      ? `${currentSize.name} — ${currentSize.cm} (${currentSize.sqft % 1 === 0 ? currentSize.sqft : currentSize.sqft.toFixed(1)} sq.ft)`
+      : "—";
 
   return (
     <section style={{ background: "var(--surface-alt)", padding: "80px 0 100px" }}>
@@ -357,7 +360,7 @@ export default function PriceCalculator() {
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Size</h3>
                   {activeSection !== 3 && (
                     <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
-                      {sizeDisplayLabel}{sqft > 0 ? ` · ${formatSqft(sqft)}` : ""}
+                      {sizeDisplayLabel}
                     </p>
                   )}
                 </div>
@@ -398,12 +401,10 @@ export default function PriceCalculator() {
                           ))}
                         </div>
 
-                        {/* Size grid */}
+                        {/* Size list — each row: "3 x 5 ft — 91 × 152 cm (15 sq.ft)" */}
                         <div style={{
-                          display: "grid",
-                          gridTemplateColumns: activeShape === "Runner" ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
-                          gap: "8px", maxHeight: "320px", overflowY: "auto",
-                          paddingRight: "4px",
+                          display: "flex", flexDirection: "column", gap: "5px",
+                          maxHeight: "340px", overflowY: "auto", paddingRight: "4px",
                         }}>
                           {(grouped[activeShape] ?? []).map((size) => {
                             const isSelected = selectedSizeId === size.id;
@@ -411,20 +412,33 @@ export default function PriceCalculator() {
                               <button key={size.id}
                                 onClick={() => { setSelectedSizeId(size.id); setUseCustomSize(false); }}
                                 style={{
-                                  padding: "10px 8px", borderRadius: "var(--radius-md)", cursor: "pointer",
-                                  border: `2px solid ${isSelected ? "var(--primary)" : "var(--border-light)"}`,
-                                  background: isSelected ? "rgba(74,92,58,0.08)" : "var(--surface)",
-                                  textAlign: "center", transition: "all 0.15s",
+                                  padding: "9px 14px",
+                                  border: `1.5px solid ${isSelected ? "var(--primary)" : "var(--border-light)"}`,
+                                  borderRadius: "var(--radius-md)", cursor: "pointer",
+                                  background: isSelected ? "var(--primary)" : "var(--surface)",
+                                  transition: "all 0.15s",
+                                  display: "flex", alignItems: "center",
+                                  justifyContent: "space-between", gap: "8px", width: "100%",
+                                  textAlign: "left",
                                 }}>
-                                <div style={{ fontSize: "12px", fontWeight: 700, color: isSelected ? "var(--primary)" : "var(--foreground)", marginBottom: "2px" }}>
+                                {/* ft name */}
+                                <span style={{ fontSize: "13px", fontWeight: 700, color: isSelected ? "#fff" : "var(--foreground)", whiteSpace: "nowrap", flexShrink: 0 }}>
                                   {size.name}
-                                </div>
-                                <div style={{ fontSize: "10px", color: "var(--foreground-muted)", marginBottom: "2px" }}>
+                                </span>
+                                {/* cm */}
+                                <span style={{ fontSize: "12px", color: isSelected ? "rgba(255,255,255,0.75)" : "var(--foreground-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
                                   {size.cm}
-                                </div>
-                                <div style={{ fontSize: "11px", fontWeight: 700, color: isSelected ? "var(--primary)" : "#7a8f6a" }}>
-                                  {size.sqft} sq.ft
-                                </div>
+                                </span>
+                                {/* sqft badge */}
+                                <span style={{
+                                  marginLeft: "auto", flexShrink: 0,
+                                  fontSize: "11px", fontWeight: 700,
+                                  background: isSelected ? "rgba(255,255,255,0.2)" : "var(--primary-pale)",
+                                  color: isSelected ? "#fff" : "var(--primary)",
+                                  padding: "2px 8px", borderRadius: "9999px",
+                                }}>
+                                  {size.sqft % 1 === 0 ? size.sqft : size.sqft.toFixed(1)} sq.ft
+                                </span>
                               </button>
                             );
                           })}
@@ -432,10 +446,8 @@ export default function PriceCalculator() {
 
                         {/* Selected size detail bar */}
                         {currentSize && (
-                          <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(74,92,58,0.06)", borderRadius: "var(--radius-md)", border: "1px solid rgba(74,92,58,0.15)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>{currentSize.name}</span>
-                            <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>{currentSize.cm}</span>
-                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)" }}>{currentSize.sqft} sq.ft</span>
+                          <div style={{ marginTop: "10px", padding: "9px 14px", background: "var(--primary-pale)", borderRadius: "var(--radius-md)", border: "1px solid rgba(74,92,58,0.15)", fontSize: "13px", fontWeight: 600, color: "var(--primary)" }}>
+                            {currentSize.name} — {currentSize.cm} ({currentSize.sqft % 1 === 0 ? currentSize.sqft : currentSize.sqft.toFixed(1)} sq.ft)
                           </div>
                         )}
                       </>

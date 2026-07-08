@@ -149,14 +149,16 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
   });
 
   const sizeBtnStyle = (active: boolean) => ({
-    padding: "8px 10px",
+    padding: "9px 14px",
     border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
     borderRadius: "8px",
     background: active ? "var(--primary)" : "white",
     color: active ? "#fff" : "var(--foreground)",
-    fontSize: "11px", fontWeight: 500 as const, cursor: "pointer" as const,
+    fontSize: "13px", fontWeight: 500 as const, cursor: "pointer" as const,
     transition: "all 0.18s ease", textAlign: "left" as const,
-    lineHeight: 1.35, minWidth: "80px",
+    lineHeight: 1.4, width: "100%",
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    gap: "8px",
   });
 
   return (
@@ -336,31 +338,41 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                   </div>
                 ) : (
                   <>
-                    {/* Size grid — each button shows size / cm / sqft */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "8px" }}>
-                      {currentGroupSizes.map(s => (
-                        <button key={s.id} onClick={() => setSelectedSizeId(s.id)} style={sizeBtnStyle(selectedSizeId === s.id)}>
-                          <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "2px" }}>{s.name}</div>
-                          <div style={{ fontSize: "9px", opacity: 0.75, lineHeight: 1.3 }}>{s.cm}</div>
-                          <div style={{ fontSize: "10px", color: selectedSizeId === s.id ? "rgba(255,255,255,0.85)" : "var(--primary)", fontWeight: 600, marginTop: "2px" }}>
-                            {s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft
-                          </div>
-                        </button>
-                      ))}
+                    {/* Size list — each row: "3 x 5 ft — 91 × 152 cm (15 sq.ft)" */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "5px", maxHeight: "340px", overflowY: "auto", paddingRight: "4px" }}>
+                      {currentGroupSizes.map(s => {
+                        const isActive = selectedSizeId === s.id;
+                        return (
+                          <button key={s.id} onClick={() => setSelectedSizeId(s.id)} style={sizeBtnStyle(isActive)}>
+                            {/* Left: ft name + cm */}
+                            <span style={{ fontWeight: 700, fontSize: "13px", whiteSpace: "nowrap", flexShrink: 0 }}>
+                              {s.name}
+                            </span>
+                            <span style={{ fontSize: "12px", opacity: 0.7, whiteSpace: "nowrap", flexShrink: 0 }}>
+                              {s.cm.replace(" cm", "").replace(" dia", " cm dia")}
+                            </span>
+                            {/* Right: sqft badge */}
+                            <span style={{
+                              marginLeft: "auto", flexShrink: 0,
+                              fontSize: "11px", fontWeight: 700,
+                              background: isActive ? "rgba(255,255,255,0.2)" : "var(--primary-pale)",
+                              color: isActive ? "#fff" : "var(--primary)",
+                              padding: "2px 8px", borderRadius: "9999px",
+                            }}>
+                              {s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {/* Selected size details */}
+                    {/* Selected size detail bar */}
                     {pricing.sizeInfo && (
                       <div style={{
-                        marginTop: "10px", padding: "8px 14px",
+                        marginTop: "10px", padding: "9px 14px",
                         background: "var(--primary-pale)", borderRadius: "var(--radius-md)",
-                        fontSize: "12px", color: "var(--primary)", fontWeight: 600,
-                        display: "flex", gap: "16px", flexWrap: "wrap",
+                        fontSize: "13px", color: "var(--primary)", fontWeight: 600,
                       }}>
-                        <span>{pricing.sizeInfo.name}</span>
-                        <span>·</span>
-                        <span>{pricing.sizeInfo.cm}</span>
-                        <span>·</span>
-                        <span>{pricing.sizeInfo.sqft % 1 === 0 ? pricing.sizeInfo.sqft : pricing.sizeInfo.sqft.toFixed(1)} sq.ft</span>
+                        {pricing.sizeInfo.name} — {pricing.sizeInfo.cm} ({pricing.sizeInfo.sqft % 1 === 0 ? pricing.sizeInfo.sqft : pricing.sizeInfo.sqft.toFixed(1)} sq.ft)
                       </div>
                     )}
                   </>
@@ -552,7 +564,7 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
                   <thead>
                     <tr style={{ background: "var(--primary)" }}>
-                      {["Size", "Dimensions (cm)", "Area (sq.ft)", "Price/sq.ft", "Total Price", ""].map(h => (
+                      {["Size (ft — cm · sq.ft)", "Price/sq.ft", "Total Price", ""].map(h => (
                         <th key={h} style={{ padding: "12px 16px", color: "#fff", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "left" }}>{h}</th>
                       ))}
                     </tr>
@@ -566,9 +578,12 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                       );
                       return (
                         <tr key={s.id} style={{ background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)", borderBottom: "1px solid var(--border-light)" }}>
-                          <td style={{ padding: "11px 16px", fontSize: "14px", fontWeight: 600, color: "var(--foreground)" }}>{s.name}</td>
-                          <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{s.cm}</td>
-                          <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft</td>
+                          <td style={{ padding: "11px 16px" }}>
+                            <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)" }}>{s.name}</span>
+                            <span style={{ fontSize: "13px", color: "var(--foreground-muted)", margin: "0 6px" }}>—</span>
+                            <span style={{ fontSize: "13px", color: "var(--foreground-muted)" }}>{s.cm}</span>
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--primary)", marginLeft: "8px" }}>({s.sqft % 1 === 0 ? s.sqft : s.sqft.toFixed(1)} sq.ft)</span>
+                          </td>
                           <td style={{ padding: "11px 16px", fontSize: "13px", color: "var(--foreground-muted)" }}>{p.perSqftLabel}</td>
                           <td style={{ padding: "11px 16px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
