@@ -1,0 +1,6 @@
+[
+  { "id": "hand-knotted", "name": "Hand Knotted",  "pricePerSqft": 16 },
+  { "id": "hand-tufted",  "name": "Hand Tufted",   "pricePerSqft": 11 },
+  { "id": "durrie",       "name": "Durrie",         "pricePerSqft": 8  },
+  { "id": "jute",         "name": "Jute",           "pricePerSqft": 9  }
+]

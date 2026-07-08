@@ -1,13 +1,33 @@
 /**
  * THE FAIR RUGS — Shared Pricing Engine
- * Used by both /custom-rug and /products/[slug] pages
- * Single source of truth for all size + price calculations.
+ * Single source of truth: ONE engine used by Product pages AND Custom Rug page.
+ *
+ * Size Master lives in  data/sizes.json   (editable from Admin Panel)
+ * Pricing lives in      data/pricing.json (editable from Admin Panel)
+ * Static fallbacks in   app/data/sizes.ts + app/data/rugTypes.ts
  */
 
-import { sizes } from "../data/sizes";
-import { rugTypes } from "../data/rugTypes";
+// ── Static fallbacks (used server-side and as TypeScript types) ───────────────
+import { sizes as staticSizes } from "../data/sizes";
+import { rugTypes as staticRugTypes } from "../data/rugTypes";
 
-export { sizes, rugTypes };
+export { staticSizes as sizes, staticRugTypes as rugTypes };
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+export interface SizeMasterItem {
+  id: string;
+  shape: "Rectangular" | "Runner" | "Round" | string;
+  name: string;
+  cm: string;
+  sqft: number;
+  active?: boolean;
+}
+
+export interface PricingItem {
+  id: string;
+  name: string;
+  pricePerSqft: number;
+}
 
 export interface SizeOption {
   name: string;
@@ -27,22 +47,35 @@ export interface PriceResult {
   perSqftLabel: string;
 }
 
-// ── Pile height multipliers ──────────────────────────────────────────────────
+// ── Pile height multipliers ───────────────────────────────────────────────────
 export const PILE_HEIGHTS = [
-  { id: "flat",   label: "Flat Weave",     multiplier: 0.85, desc: "No pile, reversible" },
-  { id: "low",    label: "Low Pile",        multiplier: 0.95, desc: "5–8 mm" },
-  { id: "medium", label: "Medium Pile",     multiplier: 1.00, desc: "10–12 mm (standard)" },
-  { id: "high",   label: "High Pile",       multiplier: 1.15, desc: "15–18 mm" },
-  { id: "shaggy", label: "Shaggy / Extra High", multiplier: 1.25, desc: "20+ mm" },
+  { id: "flat",   label: "Flat Weave",          multiplier: 0.85, desc: "No pile, reversible" },
+  { id: "low",    label: "Low Pile",             multiplier: 0.95, desc: "5–8 mm" },
+  { id: "medium", label: "Medium Pile",          multiplier: 1.00, desc: "10–12 mm (standard)" },
+  { id: "high",   label: "High Pile",            multiplier: 1.15, desc: "15–18 mm" },
+  { id: "shaggy", label: "Shaggy / Extra High",  multiplier: 1.25, desc: "20+ mm" },
 ];
 
-// ── Get base price/sqft for a rug type ───────────────────────────────────────
-export function getPricePerSqft(rugTypeId: string): number {
-  const rt = rugTypes.find((r) => r.id === rugTypeId);
-  return rt ? rt.price : 11; // default hand-tufted
+// ── Convert legacy sizes array → SizeMasterItem[] ────────────────────────────
+export function legacySizesToMaster(
+  arr: Array<{ name: string; cm: string; sqft: number }>
+): SizeMasterItem[] {
+  return arr.map((s, i) => {
+    let shape: string = "Rectangular";
+    if (s.name.toLowerCase().includes("runner")) shape = "Runner";
+    else if (s.name.toLowerCase().includes("round")) shape = "Round";
+    return { id: `legacy-${i}`, shape, name: s.name, cm: s.cm, sqft: s.sqft, active: true };
+  });
 }
 
-// ── Map product construction to a rugType id ──────────────────────────────────
+// ── Get price per sqft for a rug type (from live pricing array) ───────────────
+export function getPricePerSqft(rugTypeId: string, pricing?: PricingItem[]): number {
+  const src = pricing || staticRugTypes.map(r => ({ id: r.id, name: r.name, pricePerSqft: r.price }));
+  const found = src.find(p => p.id === rugTypeId);
+  return found ? found.pricePerSqft : 11;
+}
+
+// ── Map product construction → rugType id ─────────────────────────────────────
 export function constructionToRugType(construction: string): string {
   const c = construction.toLowerCase();
   if (c.includes("knotted")) return "hand-knotted";
@@ -52,7 +85,7 @@ export function constructionToRugType(construction: string): string {
   return "hand-tufted";
 }
 
-// ── Parse custom size input "W x H" in feet → sqft ──────────────────────────
+// ── Parse custom size W × H (in ft) → sqft ───────────────────────────────────
 export function parseCustomSqft(width: string, height: string): number {
   const w = parseFloat(width);
   const h = parseFloat(height);
@@ -60,14 +93,15 @@ export function parseCustomSqft(width: string, height: string): number {
   return w * h;
 }
 
-// ── Compute price from sqft + rugTypeId + pileMultiplier ─────────────────────
+// ── Core price calculation ────────────────────────────────────────────────────
 export function computePrice(
   sqft: number,
   rugTypeId: string,
   pileMultiplier = 1.0,
-  discount?: { enabled: boolean; type: "percent" | "fixed"; value: number }
+  discount?: { enabled: boolean; type: "percent" | "fixed"; value: number },
+  pricing?: PricingItem[]
 ): PriceResult {
-  const pricePerSqft = getPricePerSqft(rugTypeId) * pileMultiplier;
+  const pricePerSqft = getPricePerSqft(rugTypeId, pricing) * pileMultiplier;
   const basePrice = sqft * pricePerSqft;
 
   let discountedPrice: number | null = null;
@@ -101,12 +135,26 @@ export function computePrice(
   };
 }
 
-// ── Get size from standard list ───────────────────────────────────────────────
-export function getSizeByName(name: string): SizeOption | undefined {
-  return sizes.find((s) => s.name === name);
-}
-
-// ── Format sq.ft display ──────────────────────────────────────────────────────
+// ── Format sq.ft for display ──────────────────────────────────────────────────
 export function formatSqft(sqft: number): string {
   return `${sqft % 1 === 0 ? sqft : sqft.toFixed(1)} sq.ft`;
+}
+
+// ── Get a single size by name from a master list ──────────────────────────────
+export function getSizeByName(name: string, master?: SizeMasterItem[]): SizeMasterItem | undefined {
+  const src = master || legacySizesToMaster(staticSizes);
+  return src.find(s => s.name === name);
+}
+
+// ── Shape groups for display ──────────────────────────────────────────────────
+export const SHAPE_ORDER = ["Rectangular", "Runner", "Round"];
+
+export function groupSizesByShape(sizes: SizeMasterItem[]): Record<string, SizeMasterItem[]> {
+  const groups: Record<string, SizeMasterItem[]> = {};
+  for (const s of sizes) {
+    if (s.active === false) continue;
+    if (!groups[s.shape]) groups[s.shape] = [];
+    groups[s.shape].push(s);
+  }
+  return groups;
 }

@@ -1,22 +1,33 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
-import { rugTypes } from "../data/rugTypes";
-import { sizes } from "../data/sizes";
+import { useMemo, useState, useEffect, useRef } from "react";
+import {
+  SizeMasterItem, PricingItem, PriceResult,
+  groupSizesByShape, SHAPE_ORDER, computePrice, parseCustomSqft, formatSqft,
+} from "../lib/pricing";
 import PriceSummary from "./PriceSummary";
 
-const shapes = ["Rectangle", "Runner", "Round", "Square", "Oval", "Irregular"];
+// ── Static rug type list (UI labels only — prices come from /api/admin/pricing) ─
+const RUG_TYPES = [
+  { id: "hand-knotted", name: "Hand Knotted",  desc: "Traditional craftsmanship" },
+  { id: "hand-tufted",  name: "Hand Tufted",   desc: "Versatile & affordable" },
+  { id: "durrie",       name: "Durrie",         desc: "Flat weave heritage" },
+  { id: "jute",         name: "Jute",           desc: "Natural & eco-friendly" },
+];
 
-const shapeIcons: Record<string, string> = {
-  Rectangle: "▬", Runner: "▰", Round: "●", Square: "■", Oval: "⬭", Irregular: "✦",
+const RUG_CATEGORIES: Record<string, string[]> = {
+  "hand-knotted": ["Traditional Persian", "Tribal & Geometric", "Floral & Medallion", "Modern Abstract", "Oushak & Turkish"],
+  "hand-tufted":  ["Contemporary", "Geometric Modern", "Floral Designs", "Bohemian", "Scandinavian"],
+  "durrie":       ["Kilim Style", "Flatweave Stripes", "Boho Geometric", "Natural Tones", "Vintage"],
+  "jute":         ["Natural Jute", "Jute-Cotton Blend", "Braided Jute", "Printed Jute", "Metallic Jute"],
 };
 
 const PILE_HEIGHTS = [
-  { label: "Flat Weave", value: "flat", mm: "0mm", desc: "Durrie / Kilim" },
-  { label: "Low Pile", value: "low", mm: "5–8mm", desc: "Easy clean" },
-  { label: "Medium Pile", value: "medium", mm: "10–13mm", desc: "Most popular" },
-  { label: "High Pile", value: "high", mm: "15–20mm", desc: "Luxurious plush" },
-  { label: "Shaggy", value: "shaggy", mm: "25–35mm", desc: "Ultra-soft" },
+  { label: "Flat Weave", value: "flat",   mm: "0mm",    desc: "Durrie/Kilim",     multiplier: 0.85 },
+  { label: "Low Pile",   value: "low",    mm: "5–8mm",  desc: "Easy clean",       multiplier: 0.95 },
+  { label: "Medium Pile",value: "medium", mm: "10–13mm",desc: "Most popular",     multiplier: 1.00 },
+  { label: "High Pile",  value: "high",   mm: "15–20mm",desc: "Luxurious plush",  multiplier: 1.15 },
+  { label: "Shaggy",     value: "shaggy", mm: "25–35mm",desc: "Ultra-soft",       multiplier: 1.25 },
 ];
 
 const COLORS = [
@@ -27,61 +38,122 @@ const COLORS = [
 ];
 
 const WEBSITE_DESIGNS = [
-  { id: "d1", name: "Vintage Oushak", image: "/images/rug1.png" },
-  { id: "d2", name: "Moroccan Diamond", image: "/images/rug2.png" },
-  { id: "d3", name: "Persian Heritage", image: "/images/rug3.png" },
-  { id: "d4", name: "Geometric Modern", image: "/images/rug4.jpg" },
-  { id: "d5", name: "Abstract Art", image: "/images/rug5.jpg" },
+  { id: "d1", name: "Vintage Oushak",    image: "/images/rug1.png" },
+  { id: "d2", name: "Moroccan Diamond",  image: "/images/rug2.png" },
+  { id: "d3", name: "Persian Heritage",  image: "/images/rug3.png" },
+  { id: "d4", name: "Geometric Modern",  image: "/images/rug4.jpg" },
+  { id: "d5", name: "Abstract Art",      image: "/images/rug5.jpg" },
   { id: "d6", name: "Scandinavian Flat", image: "/images/rug6.png" },
-  { id: "d7", name: "Boho Earth", image: "/images/rug7.png" },
-  { id: "d8", name: "Natural Jute", image: "/images/rug8.jpeg" },
+  { id: "d7", name: "Boho Earth",        image: "/images/rug7.png" },
+  { id: "d8", name: "Natural Jute",      image: "/images/rug8.jpeg" },
 ];
 
 type DesignMode = "none" | "upload" | "browse";
 
+// Shape tab icons — same as ProductDetail
+const SHAPE_ICONS: Record<string, string> = {
+  Rectangular: "▬",
+  Runner: "▰",
+  Round: "●",
+};
+
 export default function PriceCalculator() {
-  const [rugType, setRugType] = useState(rugTypes[0]);
-  const [category, setCategory] = useState(rugTypes[0].categories[0]);
-  const [shape, setShape] = useState("Rectangle");
-  const [selectedSize, setSelectedSize] = useState(sizes[6]);
-  const [useCustomSize, setUseCustomSize] = useState(false);
-  const [customWidth, setCustomWidth] = useState("");
-  const [customLength, setCustomLength] = useState("");
-  const [pileHeight, setPileHeight] = useState("medium");
-  const [selectedColors, setSelectedColors] = useState<string[]>(["#4a5c3a", "#f9f5ec"]);
-  const [designMode, setDesignMode] = useState<DesignMode>("none");
-  const [selectedDesign, setSelectedDesign] = useState<string | null>(null);
-  const [uploadedDesign, setUploadedDesign] = useState<string | null>(null);
-  const [uploadedRef, setUploadedRef] = useState<string | null>(null);
-  const [notes, setNotes] = useState("");
-  const [activeSection, setActiveSection] = useState(1);
-  const fileRef = useRef<HTMLInputElement>(null);
+  // ── Live data from API ──────────────────────────────────────────────────────
+  const [sizeMaster, setSizeMaster]   = useState<SizeMasterItem[]>([]);
+  const [pricingData, setPricingData] = useState<PricingItem[]>([]);
+  const [loadingSizes, setLoadingSizes] = useState(true);
+
+  useEffect(() => {
+    // Fetch Size Master
+    fetch("/api/admin/sizes")
+      .then((r) => r.json())
+      .then((data: SizeMasterItem[]) => {
+        setSizeMaster(Array.isArray(data) ? data : []);
+        // Default to first Rectangular
+        const first = data.find((s) => s.shape === "Rectangular" && s.active !== false);
+        if (first) setSelectedSizeId(first.id);
+        setLoadingSizes(false);
+      })
+      .catch(() => setLoadingSizes(false));
+
+    // Fetch Pricing
+    fetch("/api/admin/pricing")
+      .then((r) => r.json())
+      .then((data: PricingItem[]) => { if (Array.isArray(data)) setPricingData(data); })
+      .catch(() => {});
+  }, []);
+
+  // ── Configurator state ──────────────────────────────────────────────────────
+  const [rugTypeId,       setRugTypeId]       = useState("hand-tufted");
+  const [category,        setCategory]        = useState(RUG_CATEGORIES["hand-tufted"][0]);
+  const [activeShape,     setActiveShape]     = useState("Rectangular");
+  const [selectedSizeId,  setSelectedSizeId]  = useState("");
+  const [useCustomSize,   setUseCustomSize]   = useState(false);
+  const [customWidth,     setCustomWidth]     = useState("");
+  const [customHeight,    setCustomHeight]    = useState("");
+  const [pileHeight,      setPileHeight]      = useState("medium");
+  const [selectedColors,  setSelectedColors]  = useState<string[]>(["#4a5c3a", "#f9f5ec"]);
+  const [designMode,      setDesignMode]      = useState<DesignMode>("none");
+  const [selectedDesign,  setSelectedDesign]  = useState<string | null>(null);
+  const [uploadedDesign,  setUploadedDesign]  = useState<string | null>(null);
+  const [uploadedRef,     setUploadedRef]     = useState<string | null>(null);
+  const [notes,           setNotes]           = useState("");
+  const [activeSection,   setActiveSection]   = useState(1);
+
+  const fileRef    = useRef<HTMLInputElement>(null);
   const refFileRef = useRef<HTMLInputElement>(null);
 
-  const sqft = useMemo(() => {
-    if (useCustomSize) {
-      const w = Number(customWidth);
-      const l = Number(customLength);
-      if (!w || !l) return 0;
-      return (w / 30.48) * (l / 30.48);
+  // ── Grouped sizes ────────────────────────────────────────────────────────────
+  const grouped = useMemo(() => groupSizesByShape(sizeMaster), [sizeMaster]);
+  const availableShapes = SHAPE_ORDER.filter((sh) => (grouped[sh]?.length ?? 0) > 0);
+
+  // When active shape changes, auto-select first size in that shape
+  const handleShapeChange = (sh: string) => {
+    setActiveShape(sh);
+    const first = grouped[sh]?.[0];
+    if (first) setSelectedSizeId(first.id);
+    setUseCustomSize(false);
+  };
+
+  // Keep activeShape in sync once sizeMaster loads
+  useEffect(() => {
+    if (sizeMaster.length > 0 && !activeShape) {
+      const first = sizeMaster.find((s) => s.active !== false);
+      if (first) setActiveShape(first.shape);
     }
-    return selectedSize.sqft;
-  }, [customWidth, customLength, selectedSize, useCustomSize]);
+  }, [sizeMaster, activeShape]);
 
-  const totalPrice = useMemo(() => {
-    let price = sqft * rugType.price;
-    // Pile height adjustments
-    if (pileHeight === "high") price *= 1.15;
-    if (pileHeight === "shaggy") price *= 1.25;
-    if (pileHeight === "flat") price *= 0.85;
-    return price;
-  }, [sqft, rugType, pileHeight]);
+  // ── Pile multiplier ─────────────────────────────────────────────────────────
+  const pileMultiplier = useMemo(() => {
+    return PILE_HEIGHTS.find((p) => p.value === pileHeight)?.multiplier ?? 1.0;
+  }, [pileHeight]);
 
-  const toggleColor = (c: string) => {
+  // ── sq.ft + price calculation ───────────────────────────────────────────────
+  const sqft = useMemo(() => {
+    if (useCustomSize) return parseCustomSqft(customWidth, customHeight);
+    const size = sizeMaster.find((s) => s.id === selectedSizeId);
+    return size ? size.sqft : 0;
+  }, [useCustomSize, customWidth, customHeight, selectedSizeId, sizeMaster]);
+
+  const priceResult: PriceResult = useMemo(() => {
+    return computePrice(
+      sqft,
+      rugTypeId,
+      pileMultiplier,
+      undefined,
+      pricingData.length > 0 ? pricingData : undefined
+    );
+  }, [sqft, rugTypeId, pileMultiplier, pricingData]);
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const currentSize = sizeMaster.find((s) => s.id === selectedSizeId);
+  const currentPricing = pricingData.find((p) => p.id === rugTypeId);
+  const pricePerSqft = currentPricing?.pricePerSqft ?? priceResult.pricePerSqft / pileMultiplier;
+
+  const toggleColor = (c: string) =>
     setSelectedColors((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : prev.length < 5 ? [...prev, c] : prev
     );
-  };
 
   const handleDesignUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,6 +173,7 @@ export default function PriceCalculator() {
     }
   };
 
+  // ── Styles ───────────────────────────────────────────────────────────────────
   const sectionStyle = (n: number) => ({
     border: `1.5px solid ${activeSection === n ? "var(--primary)" : "var(--border-light)"}`,
     borderRadius: "var(--radius-lg)",
@@ -112,8 +185,8 @@ export default function PriceCalculator() {
   });
 
   const stepHeadStyle = (n: number) => ({
-    display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px",
-    ...(activeSection !== n ? { marginBottom: "0" } : {}),
+    display: "flex", alignItems: "center", gap: "12px",
+    marginBottom: activeSection === n ? "24px" : "0",
   });
 
   const stepNumStyle = (n: number) => ({
@@ -122,6 +195,12 @@ export default function PriceCalculator() {
     color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: "13px", fontWeight: 700, flexShrink: 0,
   });
+
+  const sizeDisplayLabel = useCustomSize
+    ? customWidth && customHeight
+      ? `${customWidth} × ${customHeight} ft (custom)`
+      : "Custom dimensions"
+    : currentSize?.name ?? "—";
 
   return (
     <section style={{ background: "var(--surface-alt)", padding: "80px 0 100px" }}>
@@ -150,9 +229,15 @@ export default function PriceCalculator() {
                 <div style={stepNumStyle(1)}>1</div>
                 <div>
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Design Source</h3>
-                  {activeSection !== 1 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
-                    {designMode === "upload" && uploadedDesign ? "Custom design uploaded" : designMode === "browse" && selectedDesign ? WEBSITE_DESIGNS.find(d => d.id === selectedDesign)?.name : "No design selected"}
-                  </p>}
+                  {activeSection !== 1 && (
+                    <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
+                      {designMode === "upload" && uploadedDesign
+                        ? "Custom design uploaded"
+                        : designMode === "browse" && selectedDesign
+                          ? WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.name
+                          : "No design selected"}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -160,10 +245,10 @@ export default function PriceCalculator() {
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "20px" }}>
                     {([
-                      { mode: "none" as DesignMode, icon: "✦", label: "Custom Design", desc: "We design for you" },
-                      { mode: "upload" as DesignMode, icon: "↑", label: "Upload Your Design", desc: "Share your artwork" },
-                      { mode: "browse" as DesignMode, icon: "⊞", label: "Browse Our Designs", desc: "Choose from gallery" },
-                    ]).map(opt => (
+                      { mode: "none" as DesignMode,   icon: "✦", label: "Custom Design",      desc: "We design for you" },
+                      { mode: "upload" as DesignMode, icon: "↑", label: "Upload Your Design",  desc: "Share your artwork" },
+                      { mode: "browse" as DesignMode, icon: "⊞", label: "Browse Our Designs",  desc: "Choose from gallery" },
+                    ]).map((opt) => (
                       <button key={opt.mode} onClick={(e) => { e.stopPropagation(); setDesignMode(opt.mode); }}
                         style={{
                           padding: "16px 12px", borderRadius: "var(--radius-md)", cursor: "pointer",
@@ -189,8 +274,8 @@ export default function PriceCalculator() {
                       ) : (
                         <button onClick={() => fileRef.current?.click()}
                           style={{ width: "100%", padding: "28px", border: "2px dashed var(--border)", borderRadius: "var(--radius-md)", background: "var(--surface-alt)", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}
-                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--primary)"}
-                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}
                         >
                           <div style={{ fontSize: "28px", marginBottom: "8px" }}>📎</div>
                           <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", marginBottom: "4px" }}>Click to upload your design</div>
@@ -202,7 +287,7 @@ export default function PriceCalculator() {
 
                   {designMode === "browse" && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
-                      {WEBSITE_DESIGNS.map(d => (
+                      {WEBSITE_DESIGNS.map((d) => (
                         <button key={d.id} onClick={() => setSelectedDesign(d.id)}
                           style={{ position: "relative", borderRadius: "var(--radius-md)", overflow: "hidden", border: `2px solid ${selectedDesign === d.id ? "var(--primary)" : "transparent"}`, cursor: "pointer", background: "none", padding: 0, aspectRatio: "1" }}>
                           <img src={d.image} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -226,7 +311,11 @@ export default function PriceCalculator() {
                 <div style={stepNumStyle(2)}>2</div>
                 <div>
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Material & Style</h3>
-                  {activeSection !== 2 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>{rugType.name} — {category}</p>}
+                  {activeSection !== 2 && (
+                    <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
+                      {RUG_TYPES.find((r) => r.id === rugTypeId)?.name} — {category}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -234,64 +323,51 @@ export default function PriceCalculator() {
                 <>
                   <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", marginBottom: "12px" }}>Craft Technique</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px", marginBottom: "24px" }}>
-                    {rugTypes.map((rt) => (
-                      <button key={rt.id} onClick={() => { setRugType(rt); setCategory(rt.categories[0]); }}
-                        style={{ padding: "14px 16px", border: `2px solid ${rugType.id === rt.id ? "var(--primary)" : "var(--border-light)"}`, borderRadius: "var(--radius-md)", background: rugType.id === rt.id ? "rgba(74,92,58,0.06)" : "var(--surface)", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
-                        <div style={{ fontSize: "13px", fontWeight: 700, color: rugType.id === rt.id ? "var(--primary)" : "var(--foreground)", marginBottom: "3px" }}>{rt.name}</div>
-                        <div style={{ fontSize: "11px", color: "var(--foreground-muted)" }}>from ${rt.price}/sq.ft</div>
-                      </button>
-                    ))}
+                    {RUG_TYPES.map((rt) => {
+                      const livePrice = pricingData.find((p) => p.id === rt.id);
+                      return (
+                        <button key={rt.id} onClick={() => { setRugTypeId(rt.id); setCategory(RUG_CATEGORIES[rt.id]?.[0] ?? ""); }}
+                          style={{ padding: "14px 16px", border: `2px solid ${rugTypeId === rt.id ? "var(--primary)" : "var(--border-light)"}`, borderRadius: "var(--radius-md)", background: rugTypeId === rt.id ? "rgba(74,92,58,0.06)" : "var(--surface)", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: rugTypeId === rt.id ? "var(--primary)" : "var(--foreground)", marginBottom: "3px" }}>{rt.name}</div>
+                          <div style={{ fontSize: "11px", color: "var(--foreground-muted)" }}>
+                            {livePrice ? `from $${livePrice.pricePerSqft}/sq.ft` : rt.desc}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", marginBottom: "10px" }}>Design Style</p>
                   <div className="select-wrapper">
                     <select value={category} onChange={(e) => setCategory(e.target.value)} className="form-control">
-                      {rugType.categories.map((cat) => <option key={cat}>{cat}</option>)}
+                      {(RUG_CATEGORIES[rugTypeId] ?? []).map((cat) => (
+                        <option key={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
                 </>
               )}
             </div>
 
-            {/* ── Section 3: Shape ── */}
+            {/* ── Section 3: Size (Grouped by Shape — same as Product Detail) ── */}
             <div style={sectionStyle(3)} onClick={() => setActiveSection(3)}>
               <div style={stepHeadStyle(3)}>
                 <div style={stepNumStyle(3)}>3</div>
                 <div>
-                  <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Shape</h3>
-                  {activeSection !== 3 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>{shape}</p>}
+                  <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Size</h3>
+                  {activeSection !== 3 && (
+                    <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
+                      {sizeDisplayLabel}{sqft > 0 ? ` · ${formatSqft(sqft)}` : ""}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {activeSection === 3 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
-                  {shapes.map((s) => (
-                    <button key={s} onClick={() => setShape(s)}
-                      style={{ padding: "14px 8px", border: `2px solid ${shape === s ? "var(--primary)" : "var(--border-light)"}`, borderRadius: "var(--radius-md)", background: shape === s ? "rgba(74,92,58,0.06)" : "var(--surface)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
-                      <span style={{ fontSize: "22px", color: shape === s ? "var(--primary)" : "var(--foreground-muted)" }}>{shapeIcons[s]}</span>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: shape === s ? "var(--primary)" : "var(--foreground-muted)", textAlign: "center" }}>{s}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ── Section 4: Size ── */}
-            <div style={sectionStyle(4)} onClick={() => setActiveSection(4)}>
-              <div style={stepHeadStyle(4)}>
-                <div style={stepNumStyle(4)}>4</div>
-                <div>
-                  <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Size</h3>
-                  {activeSection !== 4 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
-                    {useCustomSize ? (customWidth && customLength ? `${customWidth}×${customLength} cm` : "Custom dimensions") : selectedSize.name}
-                  </p>}
-                </div>
-              </div>
-
-              {activeSection === 4 && (
                 <>
+                  {/* Standard / Custom toggle */}
                   <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-                    {[{ label: "Standard Size", val: false }, { label: "Custom Size", val: true }].map(opt => (
+                    {[{ label: "Standard Size", val: false }, { label: "Custom Size", val: true }].map((opt) => (
                       <button key={String(opt.val)} onClick={() => setUseCustomSize(opt.val)}
                         style={{ flex: 1, padding: "10px", border: `2px solid ${useCustomSize === opt.val ? "var(--primary)" : "var(--border-light)"}`, borderRadius: "var(--radius-md)", background: useCustomSize === opt.val ? "rgba(74,92,58,0.06)" : "var(--surface)", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: useCustomSize === opt.val ? "var(--primary)" : "var(--foreground-muted)", transition: "all 0.2s" }}>
                         {opt.label}
@@ -300,30 +376,88 @@ export default function PriceCalculator() {
                   </div>
 
                   {!useCustomSize ? (
-                    <>
-                      <div className="select-wrapper" style={{ marginBottom: "14px" }}>
-                        <select value={selectedSize.name} onChange={(e) => setSelectedSize(sizes.find(s => s.name === e.target.value)!)} className="form-control">
-                          {sizes.map(item => <option key={item.name} value={item.name}>{item.name} — {item.cm} cm ({item.sqft} sq.ft)</option>)}
-                        </select>
-                      </div>
-                      <div style={{ padding: "14px 18px", background: "var(--surface-alt)", borderRadius: "var(--radius-md)", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "13px", color: "var(--foreground-muted)" }}>{selectedSize.cm} cm</span>
-                        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)" }}>{selectedSize.sqft} sq.ft</span>
-                      </div>
-                    </>
+                    loadingSizes ? (
+                      <div style={{ padding: "24px", textAlign: "center", color: "var(--foreground-muted)", fontSize: "13px" }}>Loading sizes…</div>
+                    ) : (
+                      <>
+                        {/* Shape tabs */}
+                        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                          {availableShapes.map((sh) => (
+                            <button key={sh} onClick={() => handleShapeChange(sh)}
+                              style={{
+                                padding: "8px 16px", borderRadius: "var(--radius-md)", cursor: "pointer",
+                                border: `2px solid ${activeShape === sh ? "var(--primary)" : "var(--border-light)"}`,
+                                background: activeShape === sh ? "rgba(74,92,58,0.06)" : "var(--surface)",
+                                fontSize: "12px", fontWeight: 700,
+                                color: activeShape === sh ? "var(--primary)" : "var(--foreground-muted)",
+                                transition: "all 0.2s", display: "flex", alignItems: "center", gap: "6px",
+                              }}>
+                              <span>{SHAPE_ICONS[sh] ?? "▬"}</span>
+                              <span>{sh}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Size grid */}
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: activeShape === "Runner" ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+                          gap: "8px", maxHeight: "320px", overflowY: "auto",
+                          paddingRight: "4px",
+                        }}>
+                          {(grouped[activeShape] ?? []).map((size) => {
+                            const isSelected = selectedSizeId === size.id;
+                            return (
+                              <button key={size.id}
+                                onClick={() => { setSelectedSizeId(size.id); setUseCustomSize(false); }}
+                                style={{
+                                  padding: "10px 8px", borderRadius: "var(--radius-md)", cursor: "pointer",
+                                  border: `2px solid ${isSelected ? "var(--primary)" : "var(--border-light)"}`,
+                                  background: isSelected ? "rgba(74,92,58,0.08)" : "var(--surface)",
+                                  textAlign: "center", transition: "all 0.15s",
+                                }}>
+                                <div style={{ fontSize: "12px", fontWeight: 700, color: isSelected ? "var(--primary)" : "var(--foreground)", marginBottom: "2px" }}>
+                                  {size.name}
+                                </div>
+                                <div style={{ fontSize: "10px", color: "var(--foreground-muted)", marginBottom: "2px" }}>
+                                  {size.cm}
+                                </div>
+                                <div style={{ fontSize: "11px", fontWeight: 700, color: isSelected ? "var(--primary)" : "#7a8f6a" }}>
+                                  {size.sqft} sq.ft
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Selected size detail bar */}
+                        {currentSize && (
+                          <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(74,92,58,0.06)", borderRadius: "var(--radius-md)", border: "1px solid rgba(74,92,58,0.15)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>{currentSize.name}</span>
+                            <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>{currentSize.cm}</span>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)" }}>{currentSize.sqft} sq.ft</span>
+                          </div>
+                        )}
+                      </>
+                    )
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                       <div>
-                        <label className="form-label">Width (CM)</label>
-                        <input type="number" value={customWidth} onChange={e => setCustomWidth(e.target.value)} placeholder="e.g. 250" className="form-control" />
+                        <label className="form-label">Width (ft)</label>
+                        <input type="number" step="0.5" min="1" value={customWidth} onChange={(e) => setCustomWidth(e.target.value)} placeholder="e.g. 8" className="form-control" />
                       </div>
                       <div>
-                        <label className="form-label">Length (CM)</label>
-                        <input type="number" value={customLength} onChange={e => setCustomLength(e.target.value)} placeholder="e.g. 350" className="form-control" />
+                        <label className="form-label">Length (ft)</label>
+                        <input type="number" step="0.5" min="1" value={customHeight} onChange={(e) => setCustomHeight(e.target.value)} placeholder="e.g. 10" className="form-control" />
                       </div>
-                      {customWidth && customLength && (
+                      {customWidth && customHeight && sqft > 0 && (
                         <div style={{ gridColumn: "1/-1", padding: "12px 16px", background: "rgba(74,92,58,0.06)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-green)" }}>
-                          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)" }}>{customWidth}×{customLength} cm &nbsp;≈&nbsp; {sqft.toFixed(1)} sq.ft</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)" }}>
+                            {customWidth} × {customHeight} ft &nbsp;≈&nbsp; {sqft.toFixed(1)} sq.ft
+                          </span>
+                          <span style={{ fontSize: "12px", color: "var(--foreground-muted)", marginLeft: "12px" }}>
+                            ({(parseFloat(customWidth) * 30.48).toFixed(0)} × {(parseFloat(customHeight) * 30.48).toFixed(0)} cm)
+                          </span>
                         </div>
                       )}
                     </div>
@@ -332,19 +466,23 @@ export default function PriceCalculator() {
               )}
             </div>
 
-            {/* ── Section 5: Pile Height ── */}
-            <div style={sectionStyle(5)} onClick={() => setActiveSection(5)}>
-              <div style={stepHeadStyle(5)}>
-                <div style={stepNumStyle(5)}>5</div>
+            {/* ── Section 4: Pile Height ── */}
+            <div style={sectionStyle(4)} onClick={() => setActiveSection(4)}>
+              <div style={stepHeadStyle(4)}>
+                <div style={stepNumStyle(4)}>4</div>
                 <div>
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Pile Height</h3>
-                  {activeSection !== 5 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>{PILE_HEIGHTS.find(p => p.value === pileHeight)?.label}</p>}
+                  {activeSection !== 4 && (
+                    <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
+                      {PILE_HEIGHTS.find((p) => p.value === pileHeight)?.label}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {activeSection === 5 && (
+              {activeSection === 4 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "8px" }}>
-                  {PILE_HEIGHTS.map(ph => (
+                  {PILE_HEIGHTS.map((ph) => (
                     <button key={ph.value} onClick={() => setPileHeight(ph.value)}
                       style={{ padding: "12px 8px", border: `2px solid ${pileHeight === ph.value ? "var(--primary)" : "var(--border-light)"}`, borderRadius: "var(--radius-md)", background: pileHeight === ph.value ? "rgba(74,92,58,0.06)" : "var(--surface)", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
                       <div style={{ fontSize: "11px", fontWeight: 700, color: pileHeight === ph.value ? "var(--primary)" : "var(--foreground)", marginBottom: "4px" }}>{ph.label}</div>
@@ -355,34 +493,42 @@ export default function PriceCalculator() {
               )}
             </div>
 
-            {/* ── Section 6: Colors ── */}
-            <div style={sectionStyle(6)} onClick={() => setActiveSection(6)}>
-              <div style={stepHeadStyle(6)}>
-                <div style={stepNumStyle(6)}>6</div>
+            {/* ── Section 5: Colors ── */}
+            <div style={sectionStyle(5)} onClick={() => setActiveSection(5)}>
+              <div style={stepHeadStyle(5)}>
+                <div style={stepNumStyle(5)}>5</div>
                 <div>
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Color Palette</h3>
-                  {activeSection !== 6 && (
+                  {activeSection !== 5 && (
                     <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
-                      {selectedColors.map(c => <div key={c} style={{ width: "14px", height: "14px", borderRadius: "50%", background: c, border: "1px solid rgba(0,0,0,0.1)" }} />)}
+                      {selectedColors.map((c) => (
+                        <div key={c} style={{ width: "14px", height: "14px", borderRadius: "50%", background: c, border: "1px solid rgba(0,0,0,0.1)" }} />
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
 
-              {activeSection === 6 && (
+              {activeSection === 5 && (
                 <>
                   <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginBottom: "14px" }}>Select up to 5 colors for your rug (click to toggle)</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
-                    {COLORS.map(c => (
+                    {COLORS.map((c) => (
                       <button key={c} onClick={() => toggleColor(c)}
-                        style={{ width: "36px", height: "36px", borderRadius: "50%", background: c, border: `3px solid ${selectedColors.includes(c) ? "var(--primary)" : "rgba(0,0,0,0.1)"}`, cursor: "pointer", transition: "all 0.15s", transform: selectedColors.includes(c) ? "scale(1.2)" : "scale(1)", boxShadow: selectedColors.includes(c) ? "0 0 0 2px #fff, 0 0 0 4px var(--primary)" : "none" }}
+                        style={{
+                          width: "36px", height: "36px", borderRadius: "50%", background: c,
+                          border: `3px solid ${selectedColors.includes(c) ? "var(--primary)" : "rgba(0,0,0,0.1)"}`,
+                          cursor: "pointer", transition: "all 0.15s",
+                          transform: selectedColors.includes(c) ? "scale(1.2)" : "scale(1)",
+                          boxShadow: selectedColors.includes(c) ? "0 0 0 2px #fff, 0 0 0 4px var(--primary)" : "none",
+                        }}
                         title={c} />
                     ))}
                   </div>
                   {selectedColors.length > 0 && (
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>Your palette:</span>
-                      {selectedColors.map(c => (
+                      {selectedColors.map((c) => (
                         <div key={c} style={{ width: "24px", height: "24px", borderRadius: "50%", background: c, border: "2px solid var(--border)" }} />
                       ))}
                     </div>
@@ -391,22 +537,32 @@ export default function PriceCalculator() {
               )}
             </div>
 
-            {/* ── Section 7: Notes & Reference ── */}
-            <div style={sectionStyle(7)} onClick={() => setActiveSection(7)}>
-              <div style={stepHeadStyle(7)}>
-                <div style={stepNumStyle(7)}>7</div>
+            {/* ── Section 6: Notes & Reference ── */}
+            <div style={sectionStyle(6)} onClick={() => setActiveSection(6)}>
+              <div style={stepHeadStyle(6)}>
+                <div style={stepNumStyle(6)}>6</div>
                 <div>
                   <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", letterSpacing: "-0.01em" }}>Notes & Reference Image</h3>
-                  {activeSection !== 7 && <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>{notes ? notes.slice(0, 40) + (notes.length > 40 ? "..." : "") : "Optional"}</p>}
+                  {activeSection !== 6 && (
+                    <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
+                      {notes ? notes.slice(0, 40) + (notes.length > 40 ? "..." : "") : "Optional"}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {activeSection === 7 && (
+              {activeSection === 6 && (
                 <>
                   <label className="form-label">Additional Notes</label>
-                  <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Describe your space, any specific requirements, color preferences, room use, etc." className="form-control" style={{ minHeight: "100px", resize: "vertical", marginBottom: "20px" }} />
-
-                  <label className="form-label">Reference Image <span style={{ color: "var(--foreground-muted)", fontWeight: 400 }}>(optional — share a photo of your room or inspiration)</span></label>
+                  <textarea
+                    value={notes} onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Describe your space, any specific requirements, color preferences, room use, etc."
+                    className="form-control" style={{ minHeight: "100px", resize: "vertical", marginBottom: "20px" }}
+                  />
+                  <label className="form-label">
+                    Reference Image{" "}
+                    <span style={{ color: "var(--foreground-muted)", fontWeight: 400 }}>(optional — share a photo of your room or inspiration)</span>
+                  </label>
                   <input type="file" accept="image/*" ref={refFileRef} onChange={handleRefUpload} style={{ display: "none" }} />
                   {uploadedRef ? (
                     <div style={{ position: "relative" }}>
@@ -416,8 +572,8 @@ export default function PriceCalculator() {
                   ) : (
                     <button onClick={() => refFileRef.current?.click()}
                       style={{ width: "100%", padding: "20px", border: "2px dashed var(--border)", borderRadius: "var(--radius-md)", background: "var(--surface-alt)", cursor: "pointer", textAlign: "center", fontSize: "13px", color: "var(--foreground-muted)", transition: "all 0.2s" }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--primary)"}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--primary)")}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border)")}
                     >
                       📷 Upload room photo or reference image
                     </button>
@@ -431,13 +587,48 @@ export default function PriceCalculator() {
           {/* Right: Summary */}
           <div style={{ position: "sticky", top: "120px" }}>
             <PriceSummary
-              rugType={rugType.name}
+              rugType={RUG_TYPES.find((r) => r.id === rugTypeId)?.name ?? rugTypeId}
               category={category}
-              shape={shape}
-              size={useCustomSize ? (customWidth && customLength ? `${customWidth}×${customLength} CM` : "Custom (enter dims)") : `${selectedSize.name} (${selectedSize.cm})`}
+              shape={activeShape}
+              size={
+                useCustomSize
+                  ? customWidth && customHeight
+                    ? `${customWidth} × ${customHeight} ft (custom)`
+                    : "Custom (enter dims)"
+                  : currentSize
+                    ? `${currentSize.name} (${currentSize.cm})`
+                    : "—"
+              }
               sqft={sqft}
-              price={totalPrice}
+              price={priceResult.displayPrice}
             />
+
+            {/* Live Pricing Breakdown */}
+            {sqft > 0 && (
+              <div style={{ marginTop: "16px", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", padding: "16px 20px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--foreground-muted)", marginBottom: "10px" }}>Price Breakdown</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                    <span style={{ color: "var(--foreground-muted)" }}>Area</span>
+                    <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{formatSqft(sqft)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                    <span style={{ color: "var(--foreground-muted)" }}>Rate</span>
+                    <span style={{ fontWeight: 600, color: "var(--foreground)" }}>${(priceResult.pricePerSqft).toFixed(2)}/sq.ft</span>
+                  </div>
+                  {pileMultiplier !== 1.0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ color: "var(--foreground-muted)" }}>Pile adjustment</span>
+                      <span style={{ color: "var(--foreground-muted)" }}>×{pileMultiplier}</span>
+                    </div>
+                  )}
+                  <div style={{ borderTop: "1px solid var(--border-light)", paddingTop: "8px", marginTop: "4px", display: "flex", justifyContent: "space-between", fontSize: "15px" }}>
+                    <span style={{ fontWeight: 700, color: "var(--foreground)" }}>Total Estimate</span>
+                    <span style={{ fontWeight: 700, color: "var(--primary)" }}>{priceResult.priceLabel}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Live Preview */}
             {(selectedDesign || uploadedDesign) && (
@@ -447,12 +638,12 @@ export default function PriceCalculator() {
                 </div>
                 <div style={{ position: "relative", height: "200px" }}>
                   <img
-                    src={uploadedDesign || WEBSITE_DESIGNS.find(d => d.id === selectedDesign)?.image || ""}
+                    src={uploadedDesign || WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.image || ""}
                     alt="Preview"
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                   <div style={{ position: "absolute", bottom: "10px", left: "10px", background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: "10px", fontWeight: 600, padding: "3px 8px", borderRadius: "9999px", letterSpacing: "0.05em" }}>
-                    {uploadedDesign ? "YOUR DESIGN" : WEBSITE_DESIGNS.find(d => d.id === selectedDesign)?.name}
+                    {uploadedDesign ? "YOUR DESIGN" : WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.name}
                   </div>
                 </div>
               </div>
@@ -463,7 +654,7 @@ export default function PriceCalculator() {
               <div style={{ marginTop: "16px", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", padding: "16px 20px" }}>
                 <h4 style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)", marginBottom: "12px" }}>Selected Colors</h4>
                 <div style={{ display: "flex", gap: "6px" }}>
-                  {selectedColors.map(c => (
+                  {selectedColors.map((c) => (
                     <div key={c} style={{ flex: 1, height: "40px", borderRadius: "var(--radius-sm)", background: c, border: "1px solid rgba(0,0,0,0.1)" }} />
                   ))}
                 </div>
