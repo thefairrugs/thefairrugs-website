@@ -18,10 +18,13 @@ interface Inquiry {
 interface Product {
   id: string; slug: string; title: string; category: string; rugType: string;
   material: string; construction: string; image: string; images: string[];
-  badge?: string; inStock: boolean; leadTime: string; reviews: number;
-  active: boolean; description: string; longDescription?: string;
+  video?: string;
+  badge?: string; inStock: boolean; reviews: number;
+  active: boolean; description?: string; longDescription?: string;
   features: string[]; createdAt?: string; updatedAt?: string;
   pile?: string; shape?: string; origin?: string; subtitle?: string;
+  leadTime?: string; processingTime?: string; deliveryTime?: string;
+  keywords?: string[];
 }
 
 interface Category {
@@ -127,7 +130,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (["dashboard", "inquiries", "b2b"].includes(section)) fetchInquiries();
     if (["dashboard", "products", "add-product"].includes(section)) fetchProducts();
-    if (["dashboard", "categories"].includes(section)) fetchCategories();
+    if (["dashboard", "categories", "add-product", "products"].includes(section)) fetchCategories();
     if (section === "discount") fetchDiscount();
   }, [section, fetchInquiries, fetchProducts, fetchCategories, fetchDiscount]);
 
@@ -238,7 +241,7 @@ export default function AdminDashboard() {
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "32px" }}>
           {section === "dashboard" && <DashboardSection stats={stats} inquiries={inquiries} products={products} setSection={setSection} />}
-          {section === "products" && <ProductsSection products={products} onRefresh={fetchProducts} />}
+          {section === "products" && <ProductsSection products={products} categories={categories} onRefresh={fetchProducts} />}
           {section === "add-product" && <AddProductSection categories={categories} onSaved={() => { setSection("products"); fetchProducts(); }} />}
           {section === "categories" && <CategoriesSection categories={categories} onRefresh={fetchCategories} />}
           {section === "sizes"    && <SizeMasterSection />}
@@ -321,7 +324,7 @@ function DashboardSection({ stats, inquiries, products, setSection }: {
 }
 
 // ─── Products Section ─────────────────────────────────────────────────────────
-function ProductsSection({ products, onRefresh }: { products: Product[]; onRefresh: () => void }) {
+function ProductsSection({ products, categories, onRefresh }: { products: Product[]; categories: Category[]; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -358,7 +361,7 @@ function ProductsSection({ products, onRefresh }: { products: Product[]; onRefre
   };
 
   if (editProduct) {
-    return <EditProductSection product={editProduct} onSaved={() => { setEditProduct(null); onRefresh(); }} onCancel={() => setEditProduct(null)} />;
+    return <EditProductSection product={editProduct} categories={categories} onSaved={() => { setEditProduct(null); onRefresh(); }} onCancel={() => setEditProduct(null)} />;
   }
 
   return (
@@ -450,18 +453,331 @@ function ProductsSection({ products, onRefresh }: { products: Product[]; onRefre
   );
 }
 
+// ─── Shared: Processing Time options ─────────────────────────────────────────
+const PROCESSING_TIME_PRESETS = [
+  "2–3 Weeks", "3–4 Weeks", "3–5 Weeks", "4–5 Weeks",
+  "4–6 Weeks", "6–8 Weeks", "8–10 Weeks",
+];
+const DELIVERY_TIME_PRESETS = [
+  "Ready to Ship",
+  "2–4 Business Days",
+  "3–5 Business Days",
+  "4–6 Business Days",
+  "5–7 Business Days",
+  "7–10 Business Days",
+];
+
+// ─── Shared: File Upload UI ───────────────────────────────────────────────────
+function FileUploadSection({
+  images, video, onImagesChange, onVideoChange, productSlug,
+}: {
+  images: string[];
+  video: string;
+  onImagesChange: (imgs: string[]) => void;
+  onVideoChange: (v: string) => void;
+  productSlug?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const uploadFiles = async (files: FileList | null, type: "images" | "video") => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const fd = new FormData();
+      fd.append("productId", productSlug || "new");
+      const arr = Array.from(files);
+      if (type === "images") {
+        const toUpload = arr.slice(0, 10 - images.length);
+        toUpload.forEach((f) => fd.append("images", f));
+      } else {
+        fd.append("video", arr[0]);
+      }
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        headers: { "x-admin-key": getAdminKey() },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (type === "images" && data.urls?.length) {
+        onImagesChange([...images, ...data.urls].slice(0, 10));
+      } else if (type === "video" && data.videoUrl) {
+        onVideoChange(data.videoUrl);
+      }
+    } catch (err) {
+      setUploadError(String(err));
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div>
+      {/* Images */}
+      <div style={{ marginBottom: "16px" }}>
+        <label style={labelStyle}>Product Images (up to 10)</label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px",
+          background: "#f0f4e8", border: "2px dashed #7a9a5a", borderRadius: "10px",
+          cursor: uploading ? "not-allowed" : "pointer", fontSize: "14px", color: "#4a5c3a", fontWeight: 600,
+          opacity: uploading ? 0.6 : 1,
+        }}>
+          <span style={{ fontSize: "22px" }}>🖼️</span>
+          {uploading ? "Uploading…" : `Upload Images from Computer (${images.length}/10)`}
+          <input
+            type="file" multiple accept="image/*" style={{ display: "none" }} disabled={uploading || images.length >= 10}
+            onChange={(e) => uploadFiles(e.target.files, "images")}
+          />
+        </label>
+        <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>
+          Supported: JPG, PNG, WebP, AVIF, GIF. Max 10 images. Click to select multiple.
+        </p>
+        {uploadError && <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "4px" }}>⚠️ {uploadError}</p>}
+        {images.length > 0 && (
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "10px" }}>
+            {images.map((img, i) => (
+              <div key={i} style={{ position: "relative", width: "80px", height: "80px", borderRadius: "8px", overflow: "hidden", border: "2px solid #dcd4c5" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, background: "rgba(0,0,0,0.45)", padding: "2px 4px", fontSize: "9px", color: "#fff", textAlign: "center" }}>
+                  {i === 0 ? "Main" : `#${i + 1}`}
+                </div>
+                <button type="button" onClick={() => onImagesChange(images.filter((_, j) => j !== i))}
+                  style={{ position: "absolute", top: "2px", right: "2px", background: "rgba(220,38,38,0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Video */}
+      <div>
+        <label style={labelStyle}>Product Video (1 video, optional)</label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px",
+          background: "#f8f6f0", border: "2px dashed #c4b49a", borderRadius: "10px",
+          cursor: uploading ? "not-allowed" : "pointer", fontSize: "14px", color: "#6b4f35", fontWeight: 600,
+          opacity: uploading ? 0.6 : 1,
+        }}>
+          <span style={{ fontSize: "22px" }}>🎬</span>
+          {uploading ? "Uploading…" : video ? "Replace Video" : "Upload Video from Computer"}
+          <input
+            type="file" accept="video/*" style={{ display: "none" }} disabled={uploading}
+            onChange={(e) => uploadFiles(e.target.files, "video")}
+          />
+        </label>
+        <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>Supported: MP4, WebM, MOV. Shown on the product page.</p>
+        {video && (
+          <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "12px", color: "#5c5a52", flex: 1, wordBreak: "break-all" }}>📹 {video.split("/").pop()}</span>
+            <button type="button" onClick={() => onVideoChange("")}
+              style={{ padding: "4px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Remove</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared: Inline Add Category ──────────────────────────────────────────────
+function CategoryDropdown({
+  value, onChange, categories,
+}: {
+  value: string;
+  onChange: (catName: string, rugTypeId: string) => void;
+  categories: Category[];
+}) {
+  const [showNew, setShowNew] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Core rug types always present
+  const CORE_RUG_TYPES = [
+    { id: "hand-knotted", name: "Hand Knotted" },
+    { id: "hand-tufted", name: "Hand Tufted" },
+    { id: "durrie", name: "Durrie" },
+    { id: "jute", name: "Jute" },
+  ];
+
+  // Build merged list: core first, then extra categories
+  const coreIds = new Set(CORE_RUG_TYPES.map((r) => r.id));
+  const extraCats = categories.filter((c) => !coreIds.has(c.id) && !coreIds.has(c.slug));
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    setSaving(true);
+    try {
+      await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ name: newCatName.trim(), description: "", image: "", active: true }),
+      });
+      // Select new category immediately
+      onChange(newCatName.trim(), newCatName.trim().toLowerCase().replace(/\s+/g, "-"));
+      setNewCatName("");
+      setShowNew(false);
+    } catch {}
+    setSaving(false);
+  };
+
+  return (
+    <div>
+      <label style={labelStyle}>Category *</label>
+      <select
+        required
+        value={value}
+        onChange={(e) => {
+          const sel = e.target.value;
+          if (sel === "__add_new__") { setShowNew(true); return; }
+          const core = CORE_RUG_TYPES.find((r) => r.id === sel || r.name === sel);
+          onChange(core?.name || sel, core?.id || sel);
+        }}
+        style={selectStyle}
+      >
+        {CORE_RUG_TYPES.map((rt) => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        {extraCats.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+        <option value="__add_new__">➕ Add New Category…</option>
+      </select>
+
+      {showNew && (
+        <div style={{ marginTop: "10px", padding: "12px 14px", background: "#f0f4e8", borderRadius: "8px", border: "1px solid #c8d4b8" }}>
+          <p style={{ fontSize: "12px", fontWeight: 700, color: "#4a5c3a", marginBottom: "8px" }}>New Category Name</p>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              type="text" placeholder="e.g. Silk Rugs" value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCategory(); } }}
+              autoFocus
+            />
+            <button type="button" onClick={handleAddCategory} disabled={saving || !newCatName.trim()}
+              style={{ padding: "10px 16px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {saving ? "…" : "Add"}
+            </button>
+            <button type="button" onClick={() => { setShowNew(false); setNewCatName(""); }}
+              style={{ padding: "10px 14px", background: "#f0ece4", border: "none", borderRadius: "8px", cursor: "pointer" }}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Shared: Processing Time Field ───────────────────────────────────────────
+function ProcessingTimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isCustom = value !== "" && !PROCESSING_TIME_PRESETS.includes(value);
+  const [showCustom, setShowCustom] = useState(isCustom);
+
+  return (
+    <div>
+      <label style={labelStyle}>Processing Time</label>
+      <select
+        value={showCustom ? "__custom__" : (value || PROCESSING_TIME_PRESETS[2])}
+        onChange={(e) => {
+          if (e.target.value === "__custom__") { setShowCustom(true); onChange(""); }
+          else { setShowCustom(false); onChange(e.target.value); }
+        }}
+        style={selectStyle}
+      >
+        {PROCESSING_TIME_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+        <option value="__custom__">Custom…</option>
+      </select>
+      {showCustom && (
+        <input
+          type="text" placeholder="e.g. 7–10 Days, 10–15 Days, 4–5 Weeks…"
+          value={value} onChange={(e) => onChange(e.target.value)}
+          style={{ ...inputStyle, marginTop: "8px" }} autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Shared: Delivery Time Field ─────────────────────────────────────────────
+function DeliveryTimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isCustom = value !== "" && !DELIVERY_TIME_PRESETS.includes(value);
+  const [showCustom, setShowCustom] = useState(isCustom);
+
+  return (
+    <div>
+      <label style={labelStyle}>Delivery Time</label>
+      <select
+        value={showCustom ? "__custom__" : (value || "")}
+        onChange={(e) => {
+          if (e.target.value === "__custom__") { setShowCustom(true); onChange(""); }
+          else { setShowCustom(false); onChange(e.target.value); }
+        }}
+        style={selectStyle}
+      >
+        <option value="">— Select delivery time —</option>
+        {DELIVERY_TIME_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+        <option value="__custom__">Custom…</option>
+      </select>
+      {showCustom && (
+        <input
+          type="text" placeholder="e.g. 1–2 Business Days, Same Day…"
+          value={value} onChange={(e) => onChange(e.target.value)}
+          style={{ ...inputStyle, marginTop: "8px" }} autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Shared: SEO Keywords Field ───────────────────────────────────────────────
+function KeywordsField({ keywords, onChange }: { keywords: string[]; onChange: (kw: string[]) => void }) {
+  const MAX = 25;
+  // Pad to at least 5 visible slots, up to MAX
+  const slots = Math.max(keywords.length + 1, 5);
+  const padded = [...keywords, ...Array(Math.max(0, slots - keywords.length)).fill("")].slice(0, MAX);
+
+  const handleChange = (i: number, val: string) => {
+    const next = [...padded];
+    next[i] = val;
+    // Trim trailing empty slots (keep at least 1)
+    let last = next.length - 1;
+    while (last > 0 && next[last] === "") last--;
+    onChange(next.slice(0, last + 1).filter((_, idx) => idx <= last));
+  };
+
+  return (
+    <div>
+      <label style={labelStyle}>SEO Tags / Keywords (up to {MAX})</label>
+      <p style={{ fontSize: "11px", color: "#8a8878", marginBottom: "10px" }}>
+        Enter keywords for search and SEO. Each keyword up to 30 characters. They are saved with the product.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+        {Array.from({ length: MAX }).map((_, i) => (
+          <input
+            key={i}
+            type="text"
+            maxLength={30}
+            placeholder={i === 0 ? "e.g. hand knotted rug" : i < 3 ? `keyword ${i + 1}` : ""}
+            value={padded[i] ?? ""}
+            onChange={(e) => handleChange(i, e.target.value)}
+            style={{ ...inputStyle, fontSize: "12px", padding: "8px 10px" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Add Product Section ──────────────────────────────────────────────────────
 function AddProductSection({ categories, onSaved }: { categories: Category[]; onSaved: () => void }) {
   const [form, setForm] = useState({
-    title: "", subtitle: "", category: "Hand Tufted", rugType: "hand-tufted",
-    material: "Premium Wool", construction: "Hand Tufted", pile: "Medium Pile (10mm)",
-    shape: "Rectangle", description: "", longDescription: "", features: "",
-    badge: "", leadTime: "3–5 weeks", inStock: true,
+    title: "", category: "Hand Tufted", rugType: "hand-tufted",
+    material: "", construction: "Hand Tufted", pile: "Medium Pile (10mm)",
+    shape: "Rectangle", longDescription: "", features: "",
+    badge: "", processingTime: "3–5 Weeks", deliveryTime: "", inStock: true,
   });
   const [images, setImages] = useState<string[]>([]);
-  const [imageInput, setImageInput] = useState("");
+  const [video, setVideo] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [slugForUpload] = useState(() => `new-${Date.now()}`);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -471,122 +787,90 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
       features: form.features.split("\n").map((f) => f.trim()).filter(Boolean),
       images: images.length > 0 ? images : ["/images/rug1.png"],
       image: images[0] || "/images/rug1.png",
+      video: video || "",
+      keywords: keywords.filter(Boolean),
+      // Keep leadTime for backward compatibility
+      leadTime: form.processingTime,
     };
     try {
       await fetch("/api/admin/products", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload) });
       setSaved(true);
-      setTimeout(() => onSaved(), 1000);
+      setTimeout(() => onSaved(), 1200);
     } catch {}
     setSaving(false);
   };
 
-  const addImage = () => {
-    if (imageInput.trim()) { setImages([...images, imageInput.trim()]); setImageInput(""); }
-  };
-
-  const rugTypes = [
-    { id: "hand-knotted", name: "Hand Knotted" },
-    { id: "hand-tufted", name: "Hand Tufted" },
-    { id: "durrie", name: "Durrie" },
-    { id: "jute", name: "Jute" },
-  ];
-
   return (
-    <div style={{ maxWidth: "800px" }}>
+    <div style={{ maxWidth: "860px" }}>
       <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "32px" }}>
         <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#1c1c1a", marginBottom: "24px" }}>Add New Product</h2>
-        {saved && <div style={{ padding: "12px 16px", background: "#d1fae5", border: "1px solid #6ee7b7", borderRadius: "8px", color: "#065f46", fontSize: "14px", fontWeight: 600, marginBottom: "20px" }}>✅ Product saved!</div>}
+        {saved && <div style={{ padding: "12px 16px", background: "#d1fae5", border: "1px solid #6ee7b7", borderRadius: "8px", color: "#065f46", fontSize: "14px", fontWeight: 600, marginBottom: "20px" }}>✅ Product saved! Redirecting…</div>}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Images */}
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+
+          {/* 1. Images & Video */}
+          <FileUploadSection
+            images={images} video={video}
+            onImagesChange={setImages} onVideoChange={setVideo}
+            productSlug={slugForUpload}
+          />
+
+          {/* 2. Product Title */}
           <div>
-            <label style={labelStyle}>Product Images (URLs)</label>
-            <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-              <input
-                type="text" placeholder="/images/rug1.png or https://..." value={imageInput}
-                onChange={(e) => setImageInput(e.target.value)}
-                style={inputStyle}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImage(); } }}
-              />
-              <button type="button" onClick={addImage} style={{ padding: "10px 18px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
-            </div>
-            <p style={{ fontSize: "11px", color: "#8a8878" }}>
-              Add image URLs from /images/ folder. Pricing is handled automatically by the shared engine.
-            </p>
-            {images.length > 0 && (
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "8px" }}>
-                {images.map((img, i) => (
-                  <div key={i} style={{ position: "relative", width: "72px", height: "72px", borderRadius: "6px", overflow: "hidden" }}>
-                    <Image src={img} alt="" fill style={{ objectFit: "cover" }} sizes="72px" />
-                    <button type="button" onClick={() => setImages(images.filter((_, j) => j !== i))}
-                      style={{ position: "absolute", top: "2px", right: "2px", background: "rgba(220,38,38,0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "18px", height: "18px", fontSize: "10px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <label style={labelStyle}>Product Title *</label>
+            <input required type="text" placeholder="e.g. Vintage Oushak Rug" value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
           </div>
 
+          {/* 3. Category + Material */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div>
-              <label style={labelStyle}>Product Title *</label>
-              <input required type="text" placeholder="e.g. Vintage Oushak Rug" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Subtitle</label>
-              <input type="text" placeholder="e.g. Hand Knotted · Pure Wool" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div>
-              <label style={labelStyle}>Category *</label>
-              <select required value={form.rugType} onChange={(e) => {
-                const rt = rugTypes.find((r) => r.id === e.target.value);
-                setForm({ ...form, rugType: e.target.value, category: rt?.name || form.category, construction: rt?.name || form.construction });
-              }} style={selectStyle}>
-                {rugTypes.map((rt) => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
-                {categories.filter((c) => !rugTypes.find((r) => r.id === c.id)).map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            <CategoryDropdown
+              value={form.rugType}
+              categories={categories}
+              onChange={(catName, rugTypeId) => setForm({ ...form, category: catName, rugType: rugTypeId, construction: catName })}
+            />
             <div>
               <label style={labelStyle}>Material *</label>
-              <select value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} style={selectStyle}>
-                {["100% New Zealand Wool", "Premium Wool Blend", "100% Pure Wool", "Wool-Silk Blend", "100% Bamboo Silk", "Natural Jute", "Recycled Cotton & Wool", "Cotton Wool Blend"].map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+              <input
+                required type="text"
+                placeholder="e.g. 100% New Zealand Wool, Wool & Silk, Jute…"
+                value={form.material}
+                onChange={(e) => setForm({ ...form, material: e.target.value })}
+                style={inputStyle}
+              />
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Description *</label>
-            <textarea required rows={3} placeholder="Short product description shown on the product card..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} />
-          </div>
-
+          {/* 5. Full Description only */}
           <div>
             <label style={labelStyle}>Full Description</label>
-            <textarea rows={5} placeholder="Detailed long description for the product page..." value={form.longDescription} onChange={(e) => setForm({ ...form, longDescription: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} />
+            <textarea rows={5} placeholder="Detailed description for the product page…"
+              value={form.longDescription} onChange={(e) => setForm({ ...form, longDescription: e.target.value })}
+              style={{ ...inputStyle, resize: "vertical" }} />
           </div>
 
           <div>
             <label style={labelStyle}>Features (one per line)</label>
-            <textarea rows={5} placeholder={"Hand knotted by master artisans\n100% New Zealand wool\nNatural vegetable dyes"} value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} />
+            <textarea rows={5} placeholder={"Hand knotted by master artisans\n100% New Zealand wool\nNatural vegetable dyes"}
+              value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })}
+              style={{ ...inputStyle, resize: "vertical" }} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          {/* 6. SEO Keywords */}
+          <KeywordsField keywords={keywords} onChange={setKeywords} />
+
+          {/* 7+8. Processing Time, Delivery Time, Badge, Stock */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <ProcessingTimeField value={form.processingTime} onChange={(v) => setForm({ ...form, processingTime: v })} />
+            <DeliveryTimeField value={form.deliveryTime} onChange={(v) => setForm({ ...form, deliveryTime: v })} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             <div>
               <label style={labelStyle}>Badge</label>
               <select value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} style={selectStyle}>
                 <option value="">None</option>
                 {["Bestseller", "New", "Heritage", "Featured", "Eco", "Exclusive"].map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Lead Time</label>
-              <select value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} style={selectStyle}>
-                {["2–3 weeks", "3–4 weeks", "3–5 weeks", "4–6 weeks", "6–8 weeks"].map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
             <div>
@@ -605,7 +889,7 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
 
           <div style={{ display: "flex", gap: "12px" }}>
             <button type="submit" disabled={saving} style={{ padding: "14px 32px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>
-              {saving ? "Saving..." : "Save Product"}
+              {saving ? "Saving…" : "Save Product"}
             </button>
             <button type="button" onClick={onSaved} style={{ padding: "14px 24px", background: "#f0ece4", color: "#1c1c1a", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
           </div>
@@ -616,17 +900,28 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
 }
 
 // ─── Edit Product Section ─────────────────────────────────────────────────────
-function EditProductSection({ product, onSaved, onCancel }: { product: Product; onSaved: () => void; onCancel: () => void }) {
+function EditProductSection({ product, categories, onSaved, onCancel }: {
+  product: Product; categories: Category[]; onSaved: () => void; onCancel: () => void;
+}) {
+  // Resolve processingTime: prefer processingTime, fall back to leadTime
+  const initProcessingTime = product.processingTime || product.leadTime || "3–5 Weeks";
+  const initDeliveryTime = product.deliveryTime || "";
+  const initKeywords = product.keywords || [];
+
   const [form, setForm] = useState({
-    title: product.title, subtitle: product.subtitle || "", category: product.category,
+    title: product.title, category: product.category,
     rugType: product.rugType, material: product.material, construction: product.construction,
-    pile: product.pile || "", shape: product.shape || "", description: product.description,
+    pile: product.pile || "", shape: product.shape || "",
     longDescription: product.longDescription || "", features: (product.features || []).join("\n"),
-    badge: product.badge || "", leadTime: product.leadTime, inStock: product.inStock,
+    badge: product.badge || "", processingTime: initProcessingTime,
+    deliveryTime: initDeliveryTime, inStock: product.inStock,
     active: product.active !== false,
   });
-  const [images, setImages] = useState<string[]>(product.images || [product.image]);
-  const [imageInput, setImageInput] = useState("");
+  const [images, setImages] = useState<string[]>(
+    (product.images && product.images.length > 0) ? product.images : [product.image].filter(Boolean)
+  );
+  const [video, setVideo] = useState(product.video || "");
+  const [keywords, setKeywords] = useState<string[]>(initKeywords);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -635,7 +930,12 @@ function EditProductSection({ product, onSaved, onCancel }: { product: Product; 
     const payload = {
       id: product.id, ...form,
       features: form.features.split("\n").map((f) => f.trim()).filter(Boolean),
-      images, image: images[0] || product.image,
+      images: images.length > 0 ? images : [product.image],
+      image: images[0] || product.image,
+      video: video || "",
+      keywords: keywords.filter(Boolean),
+      // Keep leadTime for backward compatibility
+      leadTime: form.processingTime,
     };
     await fetch("/api/admin/products", { method: "PUT", headers: adminHeaders(), body: JSON.stringify(payload) });
     setSaving(false);
@@ -643,74 +943,97 @@ function EditProductSection({ product, onSaved, onCancel }: { product: Product; 
   };
 
   return (
-    <div style={{ maxWidth: "800px" }}>
+    <div style={{ maxWidth: "860px" }}>
       <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "32px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
           <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#1c1c1a" }}>Edit: {product.title}</h2>
           <button onClick={onCancel} style={{ background: "none", border: "none", fontSize: "22px", cursor: "pointer", color: "#5c5a52" }}>×</button>
         </div>
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Images */}
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+
+          {/* 1. Images & Video */}
+          <FileUploadSection
+            images={images} video={video}
+            onImagesChange={setImages} onVideoChange={setVideo}
+            productSlug={product.slug || product.id}
+          />
+
+          {/* 2. Product Title */}
           <div>
-            <label style={labelStyle}>Product Images</label>
-            <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-              <input type="text" placeholder="/images/rug1.png" value={imageInput} onChange={(e) => setImageInput(e.target.value)} style={inputStyle} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (imageInput.trim()) { setImages([...images, imageInput.trim()]); setImageInput(""); } } }} />
-              <button type="button" onClick={() => { if (imageInput.trim()) { setImages([...images, imageInput.trim()]); setImageInput(""); } }} style={{ padding: "10px 18px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>Add</button>
-            </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {images.map((img, i) => (
-                <div key={i} style={{ position: "relative", width: "72px", height: "72px", borderRadius: "6px", overflow: "hidden" }}>
-                  <Image src={img} alt="" fill style={{ objectFit: "cover" }} sizes="72px" />
-                  <button type="button" onClick={() => setImages(images.filter((_, j) => j !== i))} style={{ position: "absolute", top: "2px", right: "2px", background: "rgba(220,38,38,0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "18px", height: "18px", fontSize: "10px", cursor: "pointer" }}>×</button>
-                </div>
-              ))}
+            <label style={labelStyle}>Product Title *</label>
+            <input required type="text" value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
+          </div>
+
+          {/* 3. Category + Material */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <CategoryDropdown
+              value={form.rugType}
+              categories={categories}
+              onChange={(catName, rugTypeId) => setForm({ ...form, category: catName, rugType: rugTypeId, construction: catName })}
+            />
+            <div>
+              <label style={labelStyle}>Material *</label>
+              <input
+                required type="text"
+                placeholder="e.g. 100% New Zealand Wool, Wool & Silk, Jute…"
+                value={form.material}
+                onChange={(e) => setForm({ ...form, material: e.target.value })}
+                style={inputStyle}
+              />
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div><label style={labelStyle}>Title *</label><input required type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Subtitle</label><input type="text" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} style={inputStyle} /></div>
+          {/* 5. Full Description only */}
+          <div>
+            <label style={labelStyle}>Full Description</label>
+            <textarea rows={5} value={form.longDescription}
+              onChange={(e) => setForm({ ...form, longDescription: e.target.value })}
+              style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div><label style={labelStyle}>Category</label>
-              <select value={form.rugType} onChange={(e) => setForm({ ...form, rugType: e.target.value, category: e.target.options[e.target.selectedIndex].text })} style={selectStyle}>
-                {[{ id: "hand-knotted", name: "Hand Knotted" }, { id: "hand-tufted", name: "Hand Tufted" }, { id: "durrie", name: "Durrie" }, { id: "jute", name: "Jute" }].map((rt) => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
-              </select>
-            </div>
-            <div><label style={labelStyle}>Material</label>
-              <select value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} style={selectStyle}>
-                {["100% New Zealand Wool", "Premium Wool Blend", "100% Pure Wool", "Wool-Silk Blend", "100% Bamboo Silk", "Natural Jute", "Recycled Cotton & Wool"].map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
+
+          <div>
+            <label style={labelStyle}>Features (one per line)</label>
+            <textarea rows={5} value={form.features}
+              onChange={(e) => setForm({ ...form, features: e.target.value })}
+              style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          <div><label style={labelStyle}>Description *</label><textarea required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} /></div>
-          <div><label style={labelStyle}>Full Description</label><textarea rows={5} value={form.longDescription} onChange={(e) => setForm({ ...form, longDescription: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} /></div>
-          <div><label style={labelStyle}>Features (one per line)</label><textarea rows={5} value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} /></div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-            <div><label style={labelStyle}>Badge</label>
+
+          {/* 6. SEO Keywords */}
+          <KeywordsField keywords={keywords} onChange={setKeywords} />
+
+          {/* 7+8. Processing Time + Delivery Time */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <ProcessingTimeField value={form.processingTime} onChange={(v) => setForm({ ...form, processingTime: v })} />
+            <DeliveryTimeField value={form.deliveryTime} onChange={(v) => setForm({ ...form, deliveryTime: v })} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+            <div>
+              <label style={labelStyle}>Badge</label>
               <select value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} style={selectStyle}>
                 <option value="">None</option>
                 {["Bestseller", "New", "Heritage", "Featured", "Eco", "Exclusive"].map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
-            <div><label style={labelStyle}>Lead Time</label>
-              <select value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} style={selectStyle}>
-                {["2–3 weeks", "3–4 weeks", "3–5 weeks", "4–6 weeks", "6–8 weeks"].map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-            <div><label style={labelStyle}>Stock</label>
+            <div>
+              <label style={labelStyle}>Stock</label>
               <select value={form.inStock ? "true" : "false"} onChange={(e) => setForm({ ...form, inStock: e.target.value === "true" })} style={selectStyle}>
                 <option value="true">In Stock</option><option value="false">Out of Stock</option>
               </select>
             </div>
-            <div><label style={labelStyle}>Status</label>
+            <div>
+              <label style={labelStyle}>Status</label>
               <select value={form.active ? "true" : "false"} onChange={(e) => setForm({ ...form, active: e.target.value === "true" })} style={selectStyle}>
                 <option value="true">Active</option><option value="false">Hidden</option>
               </select>
             </div>
           </div>
+
           <div style={{ display: "flex", gap: "12px" }}>
-            <button type="submit" disabled={saving} style={{ padding: "14px 32px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>{saving ? "Saving..." : "Save Changes"}</button>
+            <button type="submit" disabled={saving} style={{ padding: "14px 32px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
             <button type="button" onClick={onCancel} style={{ padding: "14px 24px", background: "#f0ece4", color: "#1c1c1a", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
           </div>
         </form>
