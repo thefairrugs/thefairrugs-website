@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { products as staticProducts } from "../data/products";
 import { constructionToRugType, computePrice, sizes } from "../lib/pricing";
 
 // ── Default reference size for "from $X" display (5×8 ft = 40 sqft) ──────────
@@ -22,6 +21,21 @@ interface Category {
   name: string;
   slug: string;
   active: boolean;
+}
+
+interface Product {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  category: string;
+  rugType: string;
+  construction: string;
+  image: string;
+  images?: string[];
+  badge?: string | null;
+  reviews?: number;
+  active?: boolean;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -54,7 +68,8 @@ export default function ShopContent() {
   const [sortBy, setSortBy] = useState("featured");
   const [discount, setDiscount] = useState<DiscountConfig | null>(null);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-  const [dbProducts, setDbProducts] = useState<typeof staticProducts | null>(null);
+  const [dbProducts, setDbProducts] = useState<Product[] | null>(null);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   // Fetch discount config (live)
   useEffect(() => {
@@ -80,19 +95,21 @@ export default function ShopContent() {
       .catch(() => {});
   }, []);
 
-  // Fetch products from DB (falls back to static)
+  // Fetch products from the admin database — single source of truth
   useEffect(() => {
     fetch("/api/admin/products")
       .then((r) => r.json())
-      .then((prods) => {
-        if (Array.isArray(prods) && prods.length > 0) {
-          setDbProducts(prods as typeof staticProducts);
+      .then((prods: Product[]) => {
+        if (Array.isArray(prods)) {
+          // Only show active products on the public shop
+          setDbProducts(prods.filter((p) => (p as { active?: boolean }).active !== false));
         }
       })
-      .catch(() => {});
+      .catch(() => { setDbProducts([]); })
+      .finally(() => setProductsLoading(false));
   }, []);
 
-  const displayProducts = dbProducts || staticProducts;
+  const displayProducts = dbProducts ?? [];
 
   useEffect(() => {
     const cat = searchParams.get("category");
@@ -238,7 +255,22 @@ export default function ShopContent() {
       {/* Product Grid */}
       <section style={{ padding: "60px 0 100px", background: "var(--background)" }}>
         <div className="container">
-          {sorted.length === 0 ? (
+          {/* Loading skeleton */}
+          {productsLoading && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "28px" }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", border: "1px solid var(--border-light)", background: "var(--surface)" }}>
+                  <div style={{ height: "280px", background: "linear-gradient(90deg, #f0ece4 25%, #e8e4dc 50%, #f0ece4 75%)" }} />
+                  <div style={{ padding: "22px 24px 26px" }}>
+                    <div style={{ height: "10px", width: "60%", background: "#e8e4dc", borderRadius: "4px", marginBottom: "12px" }} />
+                    <div style={{ height: "22px", width: "80%", background: "#e8e4dc", borderRadius: "4px", marginBottom: "12px" }} />
+                    <div style={{ height: "18px", width: "45%", background: "#e8e4dc", borderRadius: "4px" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!productsLoading && sorted.length === 0 ? (
             <div style={{ textAlign: "center", padding: "100px 20px" }}>
               <div style={{ fontSize: "56px", marginBottom: "24px" }}>🧶</div>
               <h3 style={{
@@ -256,7 +288,7 @@ export default function ShopContent() {
                 </button>
               </Link>
             </div>
-          ) : (
+          ) : !productsLoading ? (
             <div
               className="featured-grid"
               style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "28px" }}
@@ -349,7 +381,7 @@ export default function ShopContent() {
 
                       <div style={{ padding: "22px 24px 26px" }}>
                         <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: "8px" }}>
-                          {rug.subtitle}
+                          {rug.subtitle || rug.category}
                         </p>
                         <h3 style={{
                           fontFamily: "var(--font-cormorant), Georgia, serif",
@@ -388,7 +420,7 @@ export default function ShopContent() {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
