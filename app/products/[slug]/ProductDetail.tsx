@@ -486,7 +486,10 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
                     { label: "Pile Height", value: product.pile },
                     { label: "Shape", value: product.shape },
                     { label: "Origin", value: product.origin },
-                    { label: "Lead Time", value: product.leadTime },
+                    // Show processingTime if present, fall back to leadTime for old products
+                    { label: "Processing Time", value: product.processingTime || product.leadTime },
+                    // Show deliveryTime only if present
+                    { label: "Delivery Time", value: product.deliveryTime },
                   ].map(({ label, value }) => value ? (
                     <div key={label}>
                       <div style={{ fontSize: "10px", color: "var(--foreground-muted)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>{label}</div>

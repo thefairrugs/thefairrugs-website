@@ -2,7 +2,7 @@ export interface Product {
   id: string;
   slug: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   category: string;
   rugType: string;
   material: string;
@@ -17,6 +17,7 @@ export interface Product {
   priceNote: string;
   image: string;
   images: string[];
+  video?: string;
   badge: string | null;
   reviews: number;
   rating: number;
@@ -26,8 +27,11 @@ export interface Product {
   standardSizes: string[];
   colors: string[];
   tags: string[];
+  keywords?: string[];
   inStock: boolean;
-  leadTime: string;
+  leadTime?: string;
+  processingTime?: string;
+  deliveryTime?: string;
 }
 
 export const products: Product[] = [

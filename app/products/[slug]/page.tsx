@@ -64,9 +64,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const product = getProductFromDB(slug);
   if (!product) return { title: "Product Not Found" };
+  const metaDesc = product.description || product.longDescription || "";
   return {
     title: `${product.title} — The Fair Rugs | Handmade Luxury Rugs`,
-    description: product.description,
+    description: metaDesc,
     keywords: [
       product.title,
       product.material,
@@ -77,17 +78,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       "custom rug",
       "artisan rug",
       ...(product.tags || []),
-    ].join(", "),
+      ...(product.keywords || []),
+    ].filter(Boolean).join(", "),
     openGraph: {
       title: `${product.title} — The Fair Rugs`,
-      description: product.description,
+      description: metaDesc,
       images: [{ url: product.image, width: 1200, height: 630, alt: product.title }],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: product.title,
-      description: product.description,
+      description: metaDesc,
       images: [product.image],
     },
   };
@@ -107,7 +109,7 @@ export default async function ProductPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.title,
-    "description": product.description,
+    "description": product.description || product.longDescription || "",
     "image": product.images || [product.image],
     "brand": {
       "@type": "Brand",
