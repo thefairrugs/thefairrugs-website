@@ -1,315 +1,180 @@
 "use client";
 
-const contactDetails = [
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="currentColor" strokeWidth="1.5">
-        <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeLinejoin="round"/>
-        <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeLinejoin="round"/>
-      </svg>
-    ),
-    label: "Workshop",
-    value: "Jaipur, Rajasthan, India",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeLinejoin="round"/>
-      </svg>
-    ),
-    label: "Email",
-    value: "hello@thefairrugs.com",
-    href: "mailto:hello@thefairrugs.com",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="#25D366" width="24" height="24">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-      </svg>
-    ),
-    label: "WhatsApp",
-    value: "+91 99999 99999",
-    href: "https://wa.me/919999999999",
-  },
-  {
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M12 6v6l4 2" strokeLinecap="round"/>
-      </svg>
-    ),
-    label: "Response Time",
-    value: "Within 24 Hours",
-  },
+import { useState } from "react";
+
+const WA_URL = "https://wa.me/918416919470?text=Hello%2C%20I%27d%20like%20to%20make%20an%20inquiry%20about%20your%20rugs.";
+
+const COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany",
+  "France", "Italy", "Spain", "Netherlands", "UAE", "Singapore",
+  "New Zealand", "India", "Other",
 ];
 
 export default function ContactForm() {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1.4fr",
-        gap: "60px",
-        alignItems: "start",
-      }}
-    >
-      {/* Left: Contact Info */}
-      <div>
-        <h2
-          style={{
-            fontFamily: "var(--font-cormorant), Georgia, serif",
-            fontSize: "36px",
-            fontWeight: 400,
-            color: "var(--foreground)",
-            marginBottom: "12px",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Contact Details
-        </h2>
-        <p
-          style={{
-            fontSize: "15px",
-            color: "var(--foreground-muted)",
-            lineHeight: 1.75,
-            fontWeight: 300,
-            marginBottom: "40px",
-          }}
-        >
-          Our team of rug specialists responds to every enquiry personally. We typically reply within a few hours.
+  const [form, setForm] = useState({
+    name: "", email: "", phone: "", country: "",
+    product: "", size: "", quantity: "", message: "",
+  });
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "contact", ...form }),
+      });
+    } catch {}
+    setLoading(false);
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div style={{
+        textAlign: "center", padding: "60px 24px",
+        background: "var(--surface)", borderRadius: "var(--radius-xl)",
+        border: "1px solid var(--border-light)",
+        boxShadow: "var(--shadow-lg)",
+      }}>
+        <div style={{ fontSize: "56px", marginBottom: "20px" }}>✅</div>
+        <h3 style={{
+          fontFamily: "var(--font-cormorant), Georgia, serif",
+          fontSize: "32px", fontWeight: 300, color: "var(--foreground)", marginBottom: "16px",
+        }}>
+          Message Sent Successfully!
+        </h3>
+        <p style={{ color: "var(--foreground-muted)", fontSize: "16px", lineHeight: 1.7, maxWidth: "400px", margin: "0 auto 28px" }}>
+          Thank you for reaching out. Our team will get back to you within 24 hours. For urgent inquiries, please WhatsApp us.
         </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {contactDetails.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "16px",
-                padding: "20px 24px",
-                background: "var(--surface)",
-                borderRadius: "var(--radius-lg)",
-                border: "1px solid var(--border-light)",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "var(--primary)";
-                el.style.boxShadow = "var(--shadow-md)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "var(--border-light)";
-                el.style.boxShadow = "none";
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "var(--surface-alt)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--primary)",
-                  flexShrink: 0,
-                }}
-              >
-                {item.icon}
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--foreground-muted)",
-                    marginBottom: "5px",
-                  }}
-                >
-                  {item.label}
-                </div>
-                {item.href ? (
-                  <a
-                    href={item.href}
-                    target={item.href.startsWith("http") ? "_blank" : undefined}
-                    rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      color: "var(--foreground)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {item.value}
-                  </a>
-                ) : (
-                  <div
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      color: "var(--foreground)",
-                    }}
-                  >
-                    {item.value}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* WhatsApp CTA */}
-        <a
-          href="https://wa.me/919999999999?text=Hello%2C%20I%27m%20interested%20in%20a%20custom%20rug%20quote."
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ textDecoration: "none", display: "block", marginTop: "32px" }}
-        >
-          <button
-            style={{
-              width: "100%",
-              padding: "17px",
-              background: "#25D366",
-              color: "#fff",
-              border: "none",
-              borderRadius: "var(--radius-full)",
-              fontWeight: 700,
-              fontSize: "13px",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              boxShadow: "0 4px 16px rgba(37,211,102,0.3)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "#20b858";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "#25D366";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="white" width="18" height="18">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
-            Chat on WhatsApp Now
+        <a href={WA_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <button className="btn btn-primary" style={{ padding: "14px 36px", fontSize: "12px" }}>
+            Chat on WhatsApp
           </button>
         </a>
       </div>
+    );
+  }
 
-      {/* Right: Contact Form */}
-      <div
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
+        <div>
+          <label className="form-label">Full Name *</label>
+          <input
+            required
+            className="form-control"
+            placeholder="Your full name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="form-label">Email Address *</label>
+          <input
+            type="email"
+            required
+            className="form-control"
+            placeholder="your@email.com"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="form-label">Phone Number</label>
+          <input
+            type="tel"
+            className="form-control"
+            placeholder="+1 555 000 0000"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="form-label">Country</label>
+          <div className="select-wrapper">
+            <select
+              className="form-control"
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value })}
+            >
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="form-label">Product Interest</label>
+          <div className="select-wrapper">
+            <select
+              className="form-control"
+              value={form.product}
+              onChange={(e) => setForm({ ...form, product: e.target.value })}
+            >
+              <option value="">Select product type</option>
+              <option value="Hand Knotted">Hand Knotted Rug</option>
+              <option value="Hand Tufted">Hand Tufted Rug</option>
+              <option value="Durrie">Durrie / Flat Weave</option>
+              <option value="Jute">Jute Rug</option>
+              <option value="Custom">Custom Design</option>
+              <option value="B2B">B2B / Wholesale</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="form-label">Size Required</label>
+          <input
+            className="form-control"
+            placeholder="e.g. 8×10 ft or custom"
+            value={form.size}
+            onChange={(e) => setForm({ ...form, size: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: "20px" }}>
+        <label className="form-label">Quantity</label>
+        <input
+          className="form-control"
+          placeholder="e.g. 1 rug or 50 pieces for wholesale"
+          value={form.quantity}
+          onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+        />
+      </div>
+
+      <div style={{ marginBottom: "28px" }}>
+        <label className="form-label">Message *</label>
+        <textarea
+          required
+          className="form-control"
+          rows={5}
+          placeholder="Tell us about your project, requirements, budget, timeline, or any questions you have..."
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
+          style={{ resize: "vertical", fontFamily: "var(--font-jost), system-ui, sans-serif" }}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn btn-primary"
         style={{
-          background: "var(--surface)",
-          borderRadius: "var(--radius-xl)",
-          padding: "48px",
-          boxShadow: "var(--shadow-lg)",
-          border: "1px solid var(--border-light)",
+          width: "100%", justifyContent: "center",
+          padding: "18px", fontSize: "13px",
+          borderRadius: "var(--radius-md)",
+          opacity: loading ? 0.7 : 1,
         }}
       >
-        <h3
-          style={{
-            fontFamily: "var(--font-cormorant), Georgia, serif",
-            fontSize: "32px",
-            fontWeight: 400,
-            color: "var(--foreground)",
-            marginBottom: "8px",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Send an Enquiry
-        </h3>
-        <p
-          style={{
-            fontSize: "14px",
-            color: "var(--foreground-muted)",
-            marginBottom: "36px",
-            fontWeight: 300,
-          }}
-        >
-          Fill in the form and we&apos;ll respond within 24 hours with a personalised quote.
-        </p>
+        {loading ? "Sending..." : "Send Message"}
+      </button>
 
-        <form style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div>
-              <label className="form-label">First Name *</label>
-              <input type="text" placeholder="Your first name" className="form-control" />
-            </div>
-            <div>
-              <label className="form-label">Last Name *</label>
-              <input type="text" placeholder="Your last name" className="form-control" />
-            </div>
-          </div>
-
-          <div>
-            <label className="form-label">Email Address *</label>
-            <input type="email" placeholder="your@email.com" className="form-control" />
-          </div>
-
-          <div>
-            <label className="form-label">Phone / WhatsApp</label>
-            <input type="tel" placeholder="+1 234 567 8900" className="form-control" />
-          </div>
-
-          <div>
-            <label className="form-label">I Am a *</label>
-            <div className="select-wrapper">
-              <select className="form-control" style={{ paddingRight: "44px" }}>
-                <option value="">Select...</option>
-                <option>Homeowner</option>
-                <option>Interior Designer</option>
-                <option>Architect</option>
-                <option>Hotel / Hospitality</option>
-                <option>Property Developer</option>
-                <option>Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="form-label">Your Message / Requirements *</label>
-            <textarea
-              rows={5}
-              placeholder="Please describe the rug you are looking for — size, style, material preferences, budget, timeline..."
-              className="form-control"
-              style={{ resize: "vertical", minHeight: "120px" }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              padding: "17px",
-              fontSize: "13px",
-            }}
-          >
-            Send Enquiry →
-          </button>
-
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: "12px",
-              color: "var(--foreground-muted)",
-              fontWeight: 300,
-            }}
-          >
-            We respect your privacy. No spam, ever.
-          </p>
-        </form>
-      </div>
-    </div>
+      <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "var(--foreground-muted)" }}>
+        We respond within 24 hours · Your information is kept private
+      </p>
+    </form>
   );
 }

@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
   { href: "/custom-rug", label: "Custom Rugs" },
+  { href: "/b2b", label: "B2B / Wholesale" },
   { href: "/about", label: "Our Story" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
 ];
 
+const WA_URL = "https://wa.me/918416919470?text=Hello%2C%20I%27m%20interested%20in%20your%20luxury%20handmade%20rugs.";
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -22,21 +27,32 @@ export default function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   return (
     <>
       {/* Top Announcement Bar */}
       <div
         style={{
-          background: "var(--foreground)",
-          color: "#e8d9bd",
+          background: "var(--primary-dark)",
+          color: "rgba(255,255,255,0.9)",
           textAlign: "center",
           padding: "10px 20px",
-          fontSize: "12px",
-          letterSpacing: "0.15em",
+          fontSize: "11.5px",
+          letterSpacing: "0.18em",
           fontWeight: 500,
         }}
       >
-        ✦ &nbsp; FREE WORLDWIDE SHIPPING ON ALL ORDERS &nbsp; ✦ &nbsp; HANDCRAFTED IN INDIA &nbsp; ✦ &nbsp; 3–5 WEEK PRODUCTION TIME &nbsp; ✦
+        <span style={{ color: "var(--gold-light)", marginRight: "10px" }}>✦</span>
+        FREE WORLDWIDE SHIPPING ON ALL ORDERS
+        <span style={{ color: "var(--gold-light)", margin: "0 10px" }}>✦</span>
+        HANDCRAFTED IN INDIA
+        <span style={{ color: "var(--gold-light)", margin: "0 10px" }}>✦</span>
+        3–5 WEEK PRODUCTION TIME
+        <span style={{ color: "var(--gold-light)", marginLeft: "10px" }}>✦</span>
       </div>
 
       {/* Main Header */}
@@ -47,8 +63,8 @@ export default function Header() {
           top: 0,
           zIndex: 999,
           background: scrolled
-            ? "rgba(250,248,245,0.96)"
-            : "rgba(250,248,245,0.92)",
+            ? "rgba(248,246,240,0.97)"
+            : "rgba(248,246,240,0.93)",
           borderBottom: scrolled
             ? "1px solid var(--border)"
             : "1px solid transparent",
@@ -60,11 +76,11 @@ export default function Header() {
           style={{
             maxWidth: "1440px",
             margin: "0 auto",
-            padding: "0 48px",
+            padding: "0 40px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            height: scrolled ? "72px" : "88px",
+            height: scrolled ? "70px" : "86px",
             transition: "height 0.35s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
@@ -77,9 +93,9 @@ export default function Header() {
               <div
                 style={{
                   fontFamily: "var(--font-cormorant), Georgia, serif",
-                  fontSize: scrolled ? "26px" : "30px",
+                  fontSize: scrolled ? "24px" : "28px",
                   fontWeight: 600,
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   color: "var(--foreground)",
                   lineHeight: 1,
                   transition: "font-size 0.35s ease",
@@ -91,7 +107,7 @@ export default function Header() {
                 style={{
                   fontSize: "9px",
                   color: "var(--primary)",
-                  letterSpacing: "0.35em",
+                  letterSpacing: "0.3em",
                   fontWeight: 600,
                   textTransform: "uppercase",
                 }}
@@ -106,53 +122,65 @@ export default function Header() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "36px",
+              gap: "28px",
             }}
             className="nav-desktop"
           >
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  color: "var(--foreground-muted)",
-                  fontWeight: 500,
-                  fontSize: "13px",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  textDecoration: "none",
-                  position: "relative",
-                  paddingBottom: "3px",
-                  transition: "color 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color =
-                    "var(--primary)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color =
-                    "var(--foreground-muted)")
-                }
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{
+                    color: isActive ? "var(--primary)" : "var(--foreground-muted)",
+                    fontWeight: isActive ? 600 : 500,
+                    fontSize: "12px",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    textDecoration: "none",
+                    position: "relative",
+                    paddingBottom: "3px",
+                    transition: "color 0.2s ease",
+                    borderBottom: isActive ? "1.5px solid var(--primary)" : "1.5px solid transparent",
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      "var(--primary)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      isActive ? "var(--primary)" : "var(--foreground-muted)")
+                  }
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* CTA Buttons */}
           <div
-            style={{ display: "flex", gap: "12px", alignItems: "center" }}
+            style={{ display: "flex", gap: "10px", alignItems: "center" }}
             className="cta-desktop"
           >
             <a
-              href="https://wa.me/919999999999?text=Hello%2C%20I%27m%20interested%20in%20your%20luxury%20rugs."
+              href={WA_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{ textDecoration: "none" }}
             >
               <button
                 className="btn btn-ghost"
-                style={{ fontSize: "12px", padding: "11px 20px", display: "flex", alignItems: "center", gap: "7px" }}
+                style={{
+                  fontSize: "11px",
+                  padding: "10px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  border: "1.5px solid var(--border-green)",
+                  color: "var(--primary)",
+                }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366">
                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
@@ -161,10 +189,10 @@ export default function Header() {
               </button>
             </a>
 
-            <Link href="/shop" style={{ textDecoration: "none" }}>
+            <Link href="/contact" style={{ textDecoration: "none" }}>
               <button
                 className="btn btn-primary"
-                style={{ fontSize: "12px", padding: "12px 24px" }}
+                style={{ fontSize: "11px", padding: "11px 22px" }}
               >
                 Get a Quote
               </button>
@@ -225,10 +253,10 @@ export default function Header() {
             style={{
               background: "var(--warm-white)",
               borderTop: "1px solid var(--border)",
-              padding: "24px 24px 32px",
+              padding: "20px 24px 28px",
               display: "flex",
               flexDirection: "column",
-              gap: "20px",
+              gap: "4px",
             }}
           >
             {navLinks.map((link) => (
@@ -237,30 +265,38 @@ export default function Header() {
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
                 style={{
-                  color: "var(--foreground)",
-                  fontWeight: 500,
-                  fontSize: "15px",
+                  color: pathname === link.href ? "var(--primary)" : "var(--foreground)",
+                  fontWeight: pathname === link.href ? 600 : 500,
+                  fontSize: "14px",
                   letterSpacing: "0.05em",
                   textDecoration: "none",
-                  padding: "8px 0",
+                  padding: "12px 0",
                   borderBottom: "1px solid var(--border-light)",
                 }}
               >
                 {link.label}
               </Link>
             ))}
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
               <a
-                href="https://wa.me/919999999999"
+                href={WA_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ textDecoration: "none" }}
               >
-                <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{
+                    width: "100%",
+                    justifyContent: "center",
+                    color: "var(--primary)",
+                    borderColor: "var(--border-green)",
+                  }}
+                >
                   WhatsApp Us
                 </button>
               </a>
-              <Link href="/shop" style={{ textDecoration: "none" }}>
+              <Link href="/contact" style={{ textDecoration: "none" }}>
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>
                   Get a Quote
                 </button>
@@ -271,15 +307,10 @@ export default function Header() {
       </header>
 
       <style>{`
-        @media (max-width: 1024px) {
+        @media (max-width: 1100px) {
           .nav-desktop { display: none !important; }
           .cta-desktop { display: none !important; }
           .mobile-menu-btn { display: flex !important; }
-        }
-        @media (max-width: 768px) {
-          header > div > div:first-child {
-            padding: 0 24px !important;
-          }
         }
       `}</style>
     </>
