@@ -19,8 +19,12 @@ interface Inquiry {
   // Order fields
   orderItems?: { product: string; size: string; qty: number; price: number }[];
   totalAmount?: number; paymentMethod?: string;
-  // Reply history
+  // Reply history (legacy log)
   replies?: { date: string; channel: string; message: string; by: string }[];
+  // Two-way messaging thread
+  messageToken?: string;
+  thread?: { id: string; from: "admin" | "customer"; senderName: string; message: string; date: string; read?: boolean }[];
+  hasUnreadCustomerReply?: boolean;
 }
 
 interface Product {
@@ -1774,7 +1778,7 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
   const [expanded, setExpanded] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [replyMsg, setReplyMsg] = useState("");
-  const [replyChannel, setReplyChannel] = useState("email");
+  const [replyChannel, setReplyChannel] = useState("whatsapp");
   const [saving, setSaving] = useState(false);
 
   const updateStatus = async (id: string, status: string) => {
@@ -1793,10 +1797,26 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
 
   const addReply = async (inq: Inquiry) => {
     if (!replyMsg.trim()) return;
-    const reply = { date: new Date().toISOString(), channel: replyChannel, message: replyMsg.trim(), by: "Admin" };
-    const replies = [...(inq.replies || []), reply];
     setSaving(true);
-    await fetch("/api/inquiries", { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ id: inq.id, replies, status: "contacted" }) });
+
+    if (replyChannel === "email") {
+      // Send actual email + store in thread[] via emailReply field
+      await fetch("/api/inquiries", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id: inq.id, emailReply: replyMsg.trim(), status: "contacted" }),
+      });
+    } else {
+      // Non-email channels: WhatsApp, Phone, Note — log to replies[] array only
+      const reply = { date: new Date().toISOString(), channel: replyChannel, message: replyMsg.trim(), by: "Admin" };
+      const replies = [...(inq.replies || []), reply];
+      await fetch("/api/inquiries", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id: inq.id, replies, status: "contacted" }),
+      });
+    }
+
     setReplyMsg("");
     onRefresh();
     setSaving(false);
@@ -1837,6 +1857,7 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a" }}>{inq.name || inq.companyName || "—"}</p>
                   <span style={{ padding: "2px 8px", borderRadius: "9999px", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", background: `${typeColors[inq.type] || "#7a8f6a"}20`, color: typeColors[inq.type] || "#7a8f6a" }}>{inq.type}</span>
                   {inq.status === "new" && <span style={{ padding: "2px 8px", background: "#fee2e2", color: "#dc2626", borderRadius: "9999px", fontSize: "9px", fontWeight: 800, textTransform: "uppercase" }}>NEW</span>}
+                  {inq.hasUnreadCustomerReply && <span style={{ padding: "2px 8px", background: "#fef3c7", color: "#92400e", borderRadius: "9999px", fontSize: "9px", fontWeight: 800, textTransform: "uppercase" }}>⚡ REPLY</span>}
                 </div>
                 <p style={{ fontSize: "12px", color: "#5c5a52", marginTop: "2px" }}>{inq.email} {phone ? `· ${phone}` : ""}</p>
                 {!compact && <p style={{ fontSize: "12px", color: "#8a8878", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inq.productTitle || inq.notes?.slice(0, 60) || inq.message?.slice(0, 60) || inq.businessType || ""}</p>}
@@ -1867,7 +1888,7 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
                 {/* All fields */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "16px" }}>
                   {Object.entries(inq)
-                    .filter(([k]) => !["id", "status", "createdAt", "updatedAt", "adminNotes", "replies", "orderItems"].includes(k))
+                    .filter(([k]) => !["id", "status", "createdAt", "updatedAt", "adminNotes", "replies", "orderItems", "messageToken", "thread", "hasUnreadCustomerReply"].includes(k))
                     .map(([k, v]) => v && typeof v !== "object" ? (
                       <div key={k} style={{ background: "#fff", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                         <span style={{ fontSize: "9px", color: "#8a8878", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>{k.replace(/([A-Z])/g, " $1").trim()}</span>
@@ -1904,7 +1925,104 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
                   </div>
                 )}
 
-                {/* Two columns: Notes + Reply */}
+                {/* ── Email Conversation Thread ─────────────────────────────── */}
+                {inq.email && (
+                  <div style={{ marginBottom: "16px", background: "#fff", border: "2px solid #4a5c3a", borderRadius: "12px", overflow: "hidden" }}>
+                    {/* Thread header */}
+                    <div style={{ background: "#4a5c3a", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "18px" }}>✉️</span>
+                        <div>
+                          <p style={{ color: "#fff", fontWeight: 700, fontSize: "13px", margin: 0 }}>Email Conversation with {inq.name || inq.companyName || "Customer"}</p>
+                          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", margin: 0 }}>{inq.email}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        {inq.hasUnreadCustomerReply && (
+                          <span style={{ padding: "3px 10px", background: "#fef3c7", color: "#92400e", borderRadius: "9999px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>⚡ New Reply</span>
+                        )}
+                        {inq.messageToken && (
+                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>Inbox: /messages/{inq.messageToken.slice(0, 8)}…</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Conversation bubbles */}
+                    <div style={{ padding: "16px", maxHeight: "320px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", background: "#fafaf8" }}>
+                      {/* Opening inquiry bubble */}
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <div style={{ maxWidth: "75%" }}>
+                          <p style={{ fontSize: "10px", color: "#8a8878", textAlign: "right", marginBottom: "3px" }}>
+                            {inq.name || "Customer"} · {new Date(inq.createdAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          <div style={{ background: "#4a5c3a", color: "#fff", padding: "10px 14px", borderRadius: "14px 14px 3px 14px", fontSize: "13px", lineHeight: 1.6 }}>
+                            <p style={{ margin: 0, fontSize: "9px", fontWeight: 700, opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>Initial Inquiry</p>
+                            {inq.productTitle || inq.notes?.slice(0, 120) || inq.message?.slice(0, 120) || "Inquiry submitted via website."}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Thread messages */}
+                      {(!inq.thread || inq.thread.length === 0) && (
+                        <div style={{ textAlign: "center", padding: "20px 0", color: "#8a8878", fontSize: "13px" }}>
+                          No replies yet — use the form below to send the first reply.
+                        </div>
+                      )}
+                      {inq.thread && inq.thread.map((msg) => {
+                        const isAdmin = msg.from === "admin";
+                        return (
+                          <div key={msg.id} style={{ display: "flex", justifyContent: isAdmin ? "flex-start" : "flex-end" }}>
+                            <div style={{ maxWidth: "75%" }}>
+                              <p style={{ fontSize: "10px", color: "#8a8878", textAlign: isAdmin ? "left" : "right", marginBottom: "3px" }}>
+                                {msg.senderName} · {new Date(msg.date).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                              <div style={{
+                                padding: "10px 14px",
+                                borderRadius: isAdmin ? "3px 14px 14px 14px" : "14px 14px 3px 14px",
+                                fontSize: "13px", lineHeight: 1.6,
+                                background: isAdmin ? "#fff" : "#4a5c3a",
+                                color: isAdmin ? "#1c1c1a" : "#fff",
+                                border: isAdmin ? "1px solid #e5e7eb" : "none",
+                                whiteSpace: "pre-wrap",
+                              }}>
+                                {msg.message}
+                                {!msg.read && !isAdmin && (
+                                  <span style={{ display: "inline-block", marginLeft: "6px", fontSize: "9px", fontWeight: 800, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: "9999px", verticalAlign: "middle" }}>UNREAD</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Email Reply Compose */}
+                    <div style={{ padding: "14px 18px", borderTop: "1px solid #e5e7eb", background: "#fff" }}>
+                      <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        📧 Send Email Reply — will appear in customer's inbox at <em style={{ fontStyle: "normal", color: "#4a5c3a" }}>/messages/[token]</em>
+                      </p>
+                      <textarea
+                        rows={3}
+                        placeholder={`Type your reply to ${inq.email}…`}
+                        value={replyChannel === "email" ? replyMsg : ""}
+                        onChange={(e) => { setReplyChannel("email"); setReplyMsg(e.target.value); }}
+                        style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #4a5c3a", borderRadius: "8px", fontSize: "13px", resize: "vertical", background: "#fff", boxSizing: "border-box", fontFamily: "inherit" }}
+                      />
+                      <div style={{ display: "flex", gap: "8px", marginTop: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                        <button
+                          onClick={() => { setReplyChannel("email"); addReply(inq); }}
+                          disabled={saving || !replyMsg.trim() || replyChannel !== "email"}
+                          style={{ padding: "9px 22px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "12px", cursor: "pointer", opacity: (saving || !replyMsg.trim() || replyChannel !== "email") ? 0.5 : 1 }}
+                        >
+                          {saving && replyChannel === "email" ? "Sending…" : "📧 Send Email Reply"}
+                        </button>
+                        <span style={{ fontSize: "11px", color: "#8a8878" }}>Customer will receive an email notification + can reply from their inbox</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Two columns: Notes + Activity Log ─────────────────────── */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                   {/* Internal Notes */}
                   <div>
@@ -1916,37 +2034,37 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
                     </button>
                   </div>
 
-                  {/* Reply Tracker */}
+                  {/* Activity Log (WhatsApp / Phone / Note only) */}
                   <div>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Log a Reply</p>
-                    <select value={replyChannel} onChange={(e) => setReplyChannel(e.target.value)}
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Log Activity</p>
+                    <select value={replyChannel === "email" ? "whatsapp" : replyChannel} onChange={(e) => setReplyChannel(e.target.value)}
                       style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", marginBottom: "8px", background: "#fff" }}>
-                      <option value="email">📧 Email</option>
                       <option value="whatsapp">💬 WhatsApp</option>
                       <option value="phone">📞 Phone Call</option>
                       <option value="note">📝 Internal Note</option>
                     </select>
-                    <textarea rows={2} placeholder="Summarise what you replied…" value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
+                    <textarea rows={2} placeholder="Summarise the activity (not emailed)…" value={replyChannel !== "email" ? replyMsg : ""}
+                      onChange={(e) => { setReplyChannel(replyChannel === "email" ? "whatsapp" : replyChannel); setReplyMsg(e.target.value); }}
                       style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", resize: "none", background: "#fff" }} />
-                    <button onClick={() => addReply(inq)} disabled={saving || !replyMsg.trim()} style={{ marginTop: "8px", padding: "8px 18px", background: "#1d4ed8", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}>
-                      Log Reply
+                    <button onClick={() => addReply(inq)} disabled={saving || !replyMsg.trim() || replyChannel === "email"} style={{ marginTop: "8px", padding: "8px 18px", background: "#6b7280", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, fontSize: "12px", cursor: "pointer", opacity: (saving || !replyMsg.trim() || replyChannel === "email") ? 0.5 : 1 }}>
+                      Log Activity
                     </button>
-                    {/* Quick reply buttons */}
+                    {/* Quick contact buttons */}
                     <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
-                      {inq.email && <a href={`mailto:${inq.email}?subject=Re: Your Inquiry — The Fair Rugs`} style={{ padding: "6px 12px", background: "#e0f2fe", color: "#0369a1", borderRadius: "6px", fontSize: "11px", fontWeight: 700, textDecoration: "none" }}>Open Email →</a>}
                       {waPhone && <a href={`https://wa.me/${waPhone}?text=${waText}`} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", background: "#dcfce7", color: "#16a34a", borderRadius: "6px", fontSize: "11px", fontWeight: 700, textDecoration: "none" }}>Open WhatsApp →</a>}
+                      {inq.phone && <a href={`tel:${inq.phone}`} style={{ padding: "6px 12px", background: "#f0f9ff", color: "#0369a1", borderRadius: "6px", fontSize: "11px", fontWeight: 700, textDecoration: "none" }}>Call {inq.phone}</a>}
                     </div>
                   </div>
                 </div>
 
-                {/* Reply History */}
+                {/* Activity Log History (WhatsApp/Phone/Note only) */}
                 {inq.replies && inq.replies.length > 0 && (
                   <div style={{ marginTop: "16px" }}>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Reply History ({inq.replies.length})</p>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Activity Log ({inq.replies.length})</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       {[...inq.replies].reverse().map((r, idx) => (
                         <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px 14px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                          <span style={{ fontSize: "16px" }}>{r.channel === "email" ? "📧" : r.channel === "whatsapp" ? "💬" : r.channel === "phone" ? "📞" : "📝"}</span>
+                          <span style={{ fontSize: "16px" }}>{r.channel === "whatsapp" ? "💬" : r.channel === "phone" ? "📞" : "📝"}</span>
                           <div style={{ flex: 1 }}>
                             <p style={{ fontSize: "13px", color: "#1c1c1a" }}>{r.message}</p>
                             <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>{r.by} · {new Date(r.date).toLocaleString()} · {r.channel}</p>
