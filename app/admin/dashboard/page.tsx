@@ -468,6 +468,13 @@ const DELIVERY_TIME_PRESETS = [
 ];
 
 // ─── Shared: File Upload UI ───────────────────────────────────────────────────
+// Supports:
+//  • Multi-select (up to 10 images at once in one click)
+//  • Drag-and-drop reorder (HTML5 drag API, no external lib)
+//  • Delete any individual image
+//  • Replace any individual image
+//  • First image = Main Image (auto-promoted when reordered)
+//  • Drop-zone for dragging files from OS into the upload area
 function FileUploadSection({
   images, video, onImagesChange, onVideoChange, productSlug,
 }: {
@@ -479,17 +486,28 @@ function FileUploadSection({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
+  const [dropZoneActive, setDropZoneActive] = useState(false);
+  // replaceIdx: when set, next upload replaces that slot instead of appending
+  const [replaceIdx, setReplaceIdx] = useState<number | null>(null);
+  const replaceInputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node && replaceIdx !== null) node.click();
+  }, [replaceIdx]);
 
-  const uploadFiles = async (files: FileList | null, type: "images" | "video") => {
-    if (!files || files.length === 0) return;
+  // ── Upload helper ────────────────────────────────────────────────────────────
+  const doUpload = async (files: FileList | File[], type: "images" | "video") => {
+    const arr = Array.isArray(files) ? files : Array.from(files);
+    if (!arr.length) return;
     setUploading(true);
     setUploadError("");
     try {
       const fd = new FormData();
       fd.append("productId", productSlug || "new");
-      const arr = Array.from(files);
       if (type === "images") {
-        const toUpload = arr.slice(0, 10 - images.length);
+        const slots = 10 - images.length;
+        // If replacing a slot, we always have room for 1
+        const toUpload = replaceIdx !== null ? arr.slice(0, 1) : arr.slice(0, Math.max(slots, 0));
         toUpload.forEach((f) => fd.append("images", f));
       } else {
         fd.append("video", arr[0]);
@@ -502,7 +520,15 @@ function FileUploadSection({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       if (type === "images" && data.urls?.length) {
-        onImagesChange([...images, ...data.urls].slice(0, 10));
+        if (replaceIdx !== null) {
+          // Replace the specific slot
+          const next = [...images];
+          next[replaceIdx] = data.urls[0];
+          onImagesChange(next);
+          setReplaceIdx(null);
+        } else {
+          onImagesChange([...images, ...data.urls].slice(0, 10));
+        }
       } else if (type === "video" && data.videoUrl) {
         onVideoChange(data.videoUrl);
       }
@@ -512,48 +538,239 @@ function FileUploadSection({
     setUploading(false);
   };
 
+  // ── Drag-and-drop reorder ────────────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDragSrcIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIdx(idx);
+  };
+  const handleDrop = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragSrcIdx === null || dragSrcIdx === idx) { setDragOverIdx(null); setDragSrcIdx(null); return; }
+    const next = [...images];
+    const [moved] = next.splice(dragSrcIdx, 1);
+    next.splice(idx, 0, moved);
+    onImagesChange(next);
+    setDragOverIdx(null);
+    setDragSrcIdx(null);
+  };
+  const handleDragEnd = () => { setDragOverIdx(null); setDragSrcIdx(null); };
+
+  // ── Drop-zone (OS files dragged onto the zone) ───────────────────────────────
+  const handleZoneDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setDropZoneActive(true);
+  };
+  const handleZoneDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropZoneActive(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+    if (files.length > 0) doUpload(files, "images");
+  };
+
   return (
     <div>
-      {/* Images */}
-      <div style={{ marginBottom: "16px" }}>
-        <label style={labelStyle}>Product Images (up to 10)</label>
-        <label style={{
-          display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px",
-          background: "#f0f4e8", border: "2px dashed #7a9a5a", borderRadius: "10px",
-          cursor: uploading ? "not-allowed" : "pointer", fontSize: "14px", color: "#4a5c3a", fontWeight: 600,
-          opacity: uploading ? 0.6 : 1,
-        }}>
-          <span style={{ fontSize: "22px" }}>🖼️</span>
-          {uploading ? "Uploading…" : `Upload Images from Computer (${images.length}/10)`}
-          <input
-            type="file" multiple accept="image/*" style={{ display: "none" }} disabled={uploading || images.length >= 10}
-            onChange={(e) => uploadFiles(e.target.files, "images")}
-          />
-        </label>
-        <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>
-          Supported: JPG, PNG, WebP, AVIF, GIF. Max 10 images. Click to select multiple.
-        </p>
-        {uploadError && <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "4px" }}>⚠️ {uploadError}</p>}
+      {/* ── Images ── */}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+          <label style={labelStyle}>Product Images — up to 10 &nbsp;<span style={{ fontWeight: 400, color: "#8a8878" }}>({images.length}/10)</span></label>
+          {images.length > 1 && (
+            <span style={{ fontSize: "11px", color: "#7a8f6a", fontStyle: "italic" }}>
+              ↔ Drag thumbnails to reorder &nbsp;·&nbsp; First = Main Image
+            </span>
+          )}
+        </div>
+
+        {/* Drop-zone / Upload button */}
+        {images.length < 10 && (
+          <label
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexDirection: "column", gap: "8px",
+              padding: "20px 18px",
+              background: dropZoneActive ? "#e4f0d4" : "#f0f4e8",
+              border: `2px dashed ${dropZoneActive ? "#4a7c30" : "#7a9a5a"}`,
+              borderRadius: "12px",
+              cursor: uploading ? "not-allowed" : "pointer",
+              fontSize: "14px", color: "#4a5c3a", fontWeight: 600,
+              opacity: uploading ? 0.6 : 1,
+              transition: "all 0.15s ease",
+              textAlign: "center",
+            }}
+            onDragOver={handleZoneDragOver}
+            onDragLeave={() => setDropZoneActive(false)}
+            onDrop={handleZoneDrop}
+          >
+            <span style={{ fontSize: "28px" }}>🖼️</span>
+            <span>
+              {uploading
+                ? "Uploading…"
+                : dropZoneActive
+                ? "Drop images here"
+                : "Click to select or drag & drop images here"}
+            </span>
+            <span style={{ fontSize: "12px", fontWeight: 400, color: "#7a8f6a" }}>
+              Select multiple files at once &nbsp;·&nbsp; JPG, PNG, WebP, AVIF, GIF &nbsp;·&nbsp; Up to {10 - images.length} more image{10 - images.length !== 1 ? "s" : ""}
+            </span>
+            <input
+              type="file" multiple accept="image/*" style={{ display: "none" }}
+              disabled={uploading || images.length >= 10}
+              onChange={(e) => doUpload(e.target.files!, "images")}
+            />
+          </label>
+        )}
+
+        {uploadError && <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "6px" }}>⚠️ {uploadError}</p>}
+
+        {/* Thumbnails grid — draggable */}
         {images.length > 0 && (
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "12px" }}>
             {images.map((img, i) => (
-              <div key={i} style={{ position: "relative", width: "80px", height: "80px", borderRadius: "8px", overflow: "hidden", border: "2px solid #dcd4c5" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, background: "rgba(0,0,0,0.45)", padding: "2px 4px", fontSize: "9px", color: "#fff", textAlign: "center" }}>
-                  {i === 0 ? "Main" : `#${i + 1}`}
+              <div
+                key={img + i}
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  position: "relative", width: "96px", height: "96px",
+                  borderRadius: "10px", overflow: "visible",
+                  flexShrink: 0,
+                  cursor: "grab",
+                  outline: dragOverIdx === i && dragSrcIdx !== i
+                    ? "3px solid #4a7c30"
+                    : i === 0
+                    ? "3px solid #b8975a"
+                    : "none",
+                  outlineOffset: "2px",
+                  opacity: dragSrcIdx === i ? 0.45 : 1,
+                  transition: "opacity 0.15s, outline 0.1s",
+                }}
+              >
+                {/* Image */}
+                <div style={{ width: "96px", height: "96px", borderRadius: "10px", overflow: "hidden", border: "1.5px solid #dcd4c5" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", userSelect: "none", pointerEvents: "none" }} />
                 </div>
-                <button type="button" onClick={() => onImagesChange(images.filter((_, j) => j !== i))}
-                  style={{ position: "absolute", top: "2px", right: "2px", background: "rgba(220,38,38,0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+
+                {/* "Main" badge on first image */}
+                {i === 0 && (
+                  <div style={{
+                    position: "absolute", bottom: "-8px", left: "50%", transform: "translateX(-50%)",
+                    background: "#b8975a", color: "#fff", fontSize: "9px", fontWeight: 700,
+                    padding: "2px 8px", borderRadius: "9999px", whiteSpace: "nowrap",
+                    letterSpacing: "0.06em", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+                  }}>
+                    ★ MAIN
+                  </div>
+                )}
+
+                {/* Drag handle hint top-left */}
+                <div style={{
+                  position: "absolute", top: "4px", left: "4px",
+                  background: "rgba(0,0,0,0.35)", borderRadius: "4px",
+                  padding: "2px 4px", fontSize: "10px", color: "#fff",
+                  pointerEvents: "none", userSelect: "none",
+                }}>
+                  ⠿
+                </div>
+
+                {/* Index label top-right */}
+                <div style={{
+                  position: "absolute", top: "4px", right: "26px",
+                  background: "rgba(0,0,0,0.38)", borderRadius: "4px",
+                  padding: "1px 5px", fontSize: "9px", color: "#fff",
+                  pointerEvents: "none",
+                }}>
+                  {i + 1}
+                </div>
+
+                {/* Delete button */}
+                <button
+                  type="button"
+                  title="Remove image"
+                  onClick={() => onImagesChange(images.filter((_, j) => j !== i))}
+                  style={{
+                    position: "absolute", top: "3px", right: "3px",
+                    background: "rgba(220,38,38,0.92)", color: "#fff",
+                    border: "none", borderRadius: "50%",
+                    width: "20px", height: "20px",
+                    fontSize: "13px", lineHeight: "20px", textAlign: "center",
+                    cursor: "pointer", padding: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                  }}
+                >
+                  ×
+                </button>
+
+                {/* Replace input (hidden, triggered by button) */}
+                {replaceIdx === i && (
+                  <input
+                    ref={replaceInputRef}
+                    type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => { if (e.target.files?.length) doUpload(e.target.files, "images"); }}
+                    onBlur={() => setReplaceIdx(null)}
+                  />
+                )}
+
+                {/* Replace button (bottom, on hover via title) */}
+                <button
+                  type="button"
+                  title="Replace image"
+                  onClick={() => setReplaceIdx(i)}
+                  style={{
+                    position: "absolute", bottom: i === 0 ? "16px" : "3px", right: "3px",
+                    background: "rgba(74,92,58,0.88)", color: "#fff",
+                    border: "none", borderRadius: "4px",
+                    padding: "2px 5px", fontSize: "9px", fontWeight: 700,
+                    cursor: "pointer", letterSpacing: "0.04em",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  ↺
+                </button>
               </div>
             ))}
+
+            {/* Add-more mini button if there's already at least 1 image and slots remain */}
+            {images.length >= 1 && images.length < 10 && (
+              <label style={{
+                width: "96px", height: "96px", borderRadius: "10px",
+                border: "2px dashed #c8d4b8", background: "#f8faf4",
+                display: "flex", flexDirection: "column", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", color: "#7a8f6a",
+                fontSize: "11px", fontWeight: 600, gap: "4px", flexShrink: 0,
+              }}>
+                <span style={{ fontSize: "24px", lineHeight: 1 }}>+</span>
+                Add more
+                <input
+                  type="file" multiple accept="image/*" style={{ display: "none" }}
+                  disabled={uploading}
+                  onChange={(e) => doUpload(e.target.files!, "images")}
+                />
+              </label>
+            )}
           </div>
+        )}
+
+        {/* Tip row */}
+        {images.length > 1 && (
+          <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "14px" }}>
+            💡 Drag any thumbnail left to make it the Main Image. Click <strong>×</strong> to delete, <strong>↺</strong> to replace.
+          </p>
         )}
       </div>
 
-      {/* Video */}
+      {/* ── Video ── */}
       <div>
-        <label style={labelStyle}>Product Video (1 video, optional)</label>
+        <label style={labelStyle}>Product Video &nbsp;<span style={{ fontWeight: 400, color: "#8a8878" }}>(optional — shown on product page)</span></label>
         <label style={{
           display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px",
           background: "#f8f6f0", border: "2px dashed #c4b49a", borderRadius: "10px",
@@ -564,10 +781,10 @@ function FileUploadSection({
           {uploading ? "Uploading…" : video ? "Replace Video" : "Upload Video from Computer"}
           <input
             type="file" accept="video/*" style={{ display: "none" }} disabled={uploading}
-            onChange={(e) => uploadFiles(e.target.files, "video")}
+            onChange={(e) => doUpload(e.target.files!, "video")}
           />
         </label>
-        <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>Supported: MP4, WebM, MOV. Shown on the product page.</p>
+        <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>Supported: MP4, WebM, MOV.</p>
         {video && (
           <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "12px", color: "#5c5a52", flex: 1, wordBreak: "break-all" }}>📹 {video.split("/").pop()}</span>
@@ -728,38 +945,190 @@ function DeliveryTimeField({ value, onChange }: { value: string; onChange: (v: s
 // ─── Shared: SEO Keywords Field ───────────────────────────────────────────────
 function KeywordsField({ keywords, onChange }: { keywords: string[]; onChange: (kw: string[]) => void }) {
   const MAX = 25;
-  // Pad to at least 5 visible slots, up to MAX
-  const slots = Math.max(keywords.length + 1, 5);
-  const padded = [...keywords, ...Array(Math.max(0, slots - keywords.length)).fill("")].slice(0, MAX);
+  const [draft, setDraft] = useState("");
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editVal, setEditVal] = useState("");
 
-  const handleChange = (i: number, val: string) => {
-    const next = [...padded];
-    next[i] = val;
-    // Trim trailing empty slots (keep at least 1)
-    let last = next.length - 1;
-    while (last > 0 && next[last] === "") last--;
-    onChange(next.slice(0, last + 1).filter((_, idx) => idx <= last));
+  // Parse textarea: split by comma, trim, dedupe, cap at MAX
+  const parseDraft = () => {
+    if (!draft.trim()) return;
+    const incoming = draft
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    const merged = [...keywords];
+    for (const kw of incoming) {
+      if (merged.length >= MAX) break;
+      if (!merged.includes(kw)) merged.push(kw);
+    }
+    onChange(merged);
+    setDraft("");
   };
+
+  const removeKeyword = (i: number) => {
+    const next = [...keywords];
+    next.splice(i, 1);
+    onChange(next);
+  };
+
+  const startEdit = (i: number) => {
+    setEditIdx(i);
+    setEditVal(keywords[i]);
+  };
+
+  const commitEdit = () => {
+    if (editIdx === null) return;
+    const trimmed = editVal.trim();
+    if (trimmed && !keywords.some((k, idx) => k === trimmed && idx !== editIdx)) {
+      const next = [...keywords];
+      next[editIdx] = trimmed;
+      onChange(next);
+    }
+    setEditIdx(null);
+    setEditVal("");
+  };
+
+  const remaining = MAX - keywords.length;
 
   return (
     <div>
-      <label style={labelStyle}>SEO Tags / Keywords (up to {MAX})</label>
+      <label style={labelStyle}>
+        SEO Tags / Keywords{" "}
+        <span style={{ fontWeight: 400, color: keywords.length >= MAX ? "#c0392b" : "#8a8878" }}>
+          ({keywords.length}/{MAX})
+        </span>
+      </label>
       <p style={{ fontSize: "11px", color: "#8a8878", marginBottom: "10px" }}>
-        Enter keywords for search and SEO. Each keyword up to 30 characters. They are saved with the product.
+        Paste all keywords separated by commas, then click <strong>Add Tags</strong>. Click any tag to edit it; × to remove.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-        {Array.from({ length: MAX }).map((_, i) => (
-          <input
-            key={i}
-            type="text"
-            maxLength={30}
-            placeholder={i === 0 ? "e.g. hand knotted rug" : i < 3 ? `keyword ${i + 1}` : ""}
-            value={padded[i] ?? ""}
-            onChange={(e) => handleChange(i, e.target.value)}
-            style={{ ...inputStyle, fontSize: "12px", padding: "8px 10px" }}
+
+      {/* Paste textarea */}
+      {remaining > 0 && (
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); parseDraft(); }
+            }}
+            placeholder={`Paste keywords here, e.g.: hand tufted rug, wool rug, moroccan rug, area rug…\n(up to ${remaining} more tag${remaining === 1 ? "" : "s"} can be added)`}
+            rows={3}
+            style={{
+              ...inputStyle,
+              flex: 1,
+              resize: "vertical",
+              fontSize: "12px",
+              lineHeight: "1.5",
+              fontFamily: "inherit",
+            }}
           />
-        ))}
-      </div>
+          <button
+            type="button"
+            onClick={parseDraft}
+            disabled={!draft.trim()}
+            style={{
+              alignSelf: "flex-end",
+              padding: "9px 16px",
+              background: draft.trim() ? "#2c2c27" : "#444",
+              color: "#d4af7a",
+              border: "1px solid #d4af7a",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: draft.trim() ? "pointer" : "not-allowed",
+              whiteSpace: "nowrap",
+              letterSpacing: "0.03em",
+            }}
+          >
+            Add Tags
+          </button>
+        </div>
+      )}
+      {remaining === 0 && (
+        <p style={{ fontSize: "11px", color: "#c0392b", marginBottom: "10px" }}>
+          Maximum {MAX} keywords reached. Remove a tag to add more.
+        </p>
+      )}
+
+      {/* Tag chips */}
+      {keywords.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          {keywords.map((kw, i) =>
+            editIdx === i ? (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={editVal}
+                  maxLength={50}
+                  onChange={(e) => setEditVal(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitEdit();
+                    if (e.key === "Escape") { setEditIdx(null); setEditVal(""); }
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    background: "#1a1a16",
+                    color: "#f0ebe0",
+                    border: "1px solid #d4af7a",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    outline: "none",
+                    width: `${Math.max(editVal.length + 2, 10)}ch`,
+                  }}
+                />
+              </div>
+            ) : (
+              <span
+                key={i}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "4px 10px 4px 12px",
+                  background: "#2c2c27",
+                  color: "#d4af7a",
+                  border: "1px solid #3a3a30",
+                  borderRadius: "20px",
+                  fontSize: "12px",
+                  lineHeight: "1.4",
+                  cursor: "pointer",
+                  transition: "border-color 0.15s",
+                }}
+                title="Click to edit"
+                onClick={() => startEdit(i)}
+              >
+                {kw}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); removeKeyword(i); }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#8a8878",
+                    cursor: "pointer",
+                    padding: "0",
+                    lineHeight: 1,
+                    fontSize: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </span>
+            )
+          )}
+        </div>
+      )}
+
+      {keywords.length === 0 && (
+        <p style={{ fontSize: "12px", color: "#555", fontStyle: "italic" }}>
+          No keywords yet — paste some above and click Add Tags.
+        </p>
+      )}
     </div>
   );
 }
