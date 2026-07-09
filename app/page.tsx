@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: "The Fair Rugs — Luxury Handmade Rugs & Custom Carpets",
     description:
       "Master artisan rugs crafted in Jaipur, India. Luxury quality, bespoke designs, worldwide delivery.",
-    images: ["/images/rug1.png"],
+    images: ["/og-brand.png"],
   },
 };
 

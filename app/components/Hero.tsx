@@ -4,10 +4,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
-const slides = [
+interface Product {
+  id: string;
+  title: string;
+  image: string;
+  category: string;
+  rugType: string;
+  active?: boolean;
+}
+
+const SLIDE_CONFIGS = [
   {
-    image: "/images/rug1.png",
-    eyebrow: "New Collection — 2025",
+    eyebrow: "New Collection — 2026",
     headline: "Timeless Luxury,",
     subhead: "Woven by Hand",
     description:
@@ -16,17 +24,15 @@ const slides = [
     ctaSecondary: { label: "Design Your Own", href: "/custom-rug" },
   },
   {
-    image: "/images/rug3.png",
     eyebrow: "Artisan Craftsmanship",
     headline: "Hand Knotted",
     subhead: "Pure Elegance",
     description:
       "From the looms of Jaipur to the finest homes worldwide. Premium wool, silk, and natural fibers crafted with extraordinary care.",
-    cta: { label: "Shop Hand Knotted", href: "/shop" },
+    cta: { label: "Shop Collection", href: "/shop" },
     ctaSecondary: { label: "Get a Quote", href: "/contact" },
   },
   {
-    image: "/images/rug5.jpg",
     eyebrow: "Bespoke Service",
     headline: "Custom Rugs,",
     subhead: "Your Vision",
@@ -37,9 +43,11 @@ const slides = [
   },
 ];
 
+const FALLBACK_GRADIENT = "linear-gradient(135deg, #1a1208 0%, #2d2010 40%, #1c1510 100%)";
+
 const trustItems = [
   { icon: "✦", text: "Free Worldwide Shipping" },
-  { icon: "✦", text: "3–5 Week Production" },
+  { icon: "✦", text: "3–6 Week Production" },
   { icon: "✦", text: "100% Handmade" },
   { icon: "✦", text: "Bespoke Designs" },
 ];
@@ -47,6 +55,22 @@ const trustItems = [
 export default function Hero() {
   const [current, setCurrent] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Fetch live product images from API on mount
+  useEffect(() => {
+    fetch("/api/admin/products")
+      .then((r) => r.json())
+      .then((data: Product[]) => {
+        const active = data.filter((p) => p.active !== false && p.image);
+        // Pick up to 3 products with images
+        const images = active.slice(0, 3).map((p) => p.image);
+        if (images.length > 0) setHeroImages(images);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -60,7 +84,7 @@ export default function Hero() {
     if (transitioning) return;
     setTransitioning(true);
     setTimeout(() => {
-      setCurrent((c) => (c + 1) % slides.length);
+      setCurrent((c) => (c + 1) % SLIDE_CONFIGS.length);
       setTransitioning(false);
     }, 400);
   };
@@ -69,12 +93,13 @@ export default function Hero() {
     if (transitioning) return;
     setTransitioning(true);
     setTimeout(() => {
-      setCurrent((c) => (c - 1 + slides.length) % slides.length);
+      setCurrent((c) => (c - 1 + SLIDE_CONFIGS.length) % SLIDE_CONFIGS.length);
       setTransitioning(false);
     }, 400);
   };
 
-  const slide = slides[current];
+  const slide = SLIDE_CONFIGS[current];
+  const currentImage = heroImages[current] || null;
 
   return (
     <section
@@ -88,7 +113,7 @@ export default function Hero() {
         padding: 0,
       }}
     >
-      {/* Background Image */}
+      {/* Background */}
       <div
         style={{
           position: "absolute",
@@ -98,38 +123,78 @@ export default function Hero() {
           transition: "opacity 0.6s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        <Image
-          src={slide.image}
-          alt={slide.headline}
-          fill
-          style={{
-            objectFit: "cover",
-            objectPosition: "center",
-          }}
-          priority
-          sizes="100vw"
-        />
-        {/* Gradient Overlay */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(105deg, rgba(26,18,8,0.85) 0%, rgba(26,18,8,0.55) 50%, rgba(26,18,8,0.25) 100%)",
-          }}
-        />
+        {currentImage ? (
+          <>
+            <Image
+              src={currentImage}
+              alt={slide.headline}
+              fill
+              style={{ objectFit: "cover", objectPosition: "center" }}
+              priority
+              sizes="100vw"
+            />
+            {/* Gradient Overlay — darkens the product photo for readability */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(105deg, rgba(26,18,8,0.88) 0%, rgba(26,18,8,0.60) 50%, rgba(26,18,8,0.30) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          /* No image yet — elegant geometric CSS background */
+          <>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: FALLBACK_GRADIENT,
+              }}
+            />
+            {/* Decorative pattern overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                backgroundImage: `
+                  repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 60px,
+                    rgba(184,151,90,0.04) 60px,
+                    rgba(184,151,90,0.04) 61px
+                  ),
+                  repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 60px,
+                    rgba(184,151,90,0.03) 60px,
+                    rgba(184,151,90,0.03) 61px
+                  )
+                `,
+              }}
+            />
+            {/* Radial glow */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "radial-gradient(ellipse at 20% 50%, rgba(184,151,90,0.12) 0%, transparent 55%)",
+              }}
+            />
+          </>
+        )}
       </div>
 
-      {/* Decorative gold line */}
+      {/* Decorative gold left border */}
       <div
         style={{
           position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
+          left: 0, top: 0, bottom: 0,
           width: "4px",
-          background:
-            "linear-gradient(to bottom, transparent, var(--gold), transparent)",
+          background: "linear-gradient(to bottom, transparent, var(--gold), transparent)",
           zIndex: 2,
         }}
       />
@@ -137,40 +202,24 @@ export default function Hero() {
       {/* Content */}
       <div
         className="container"
-        style={{
-          position: "relative",
-          zIndex: 2,
-          padding: "80px 48px",
-          maxWidth: "1440px",
-        }}
+        style={{ position: "relative", zIndex: 2, padding: "80px 48px", maxWidth: "1440px" }}
       >
         <div style={{ maxWidth: "660px" }}>
           {/* Eyebrow */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
+              display: "flex", alignItems: "center", gap: "12px",
               marginBottom: "24px",
               opacity: transitioning ? 0 : 1,
               transform: transitioning ? "translateY(8px)" : "translateY(0)",
               transition: "all 0.5s ease 0.1s",
             }}
           >
-            <div
-              style={{
-                width: "32px",
-                height: "1px",
-                background: "var(--gold)",
-              }}
-            />
+            <div style={{ width: "32px", height: "1px", background: "var(--gold)" }} />
             <span
               style={{
-                fontSize: "11px",
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "var(--gold)",
-                fontWeight: 600,
+                fontSize: "11px", letterSpacing: "0.25em",
+                textTransform: "uppercase", color: "var(--gold)", fontWeight: 600,
               }}
             >
               {slide.eyebrow}
@@ -182,10 +231,8 @@ export default function Hero() {
             style={{
               fontFamily: "var(--font-cormorant), Georgia, serif",
               fontSize: "clamp(52px, 7vw, 90px)",
-              fontWeight: 300,
-              color: "#fff",
-              lineHeight: 1.06,
-              letterSpacing: "-0.02em",
+              fontWeight: 300, color: "#fff",
+              lineHeight: 1.06, letterSpacing: "-0.02em",
               marginBottom: "0",
               opacity: transitioning ? 0 : 1,
               transform: transitioning ? "translateY(12px)" : "translateY(0)",
@@ -202,11 +249,9 @@ export default function Hero() {
           {/* Description */}
           <p
             style={{
-              marginTop: "28px",
-              fontSize: "17px",
+              marginTop: "28px", fontSize: "17px",
               color: "rgba(255,255,255,0.75)",
-              lineHeight: "1.75",
-              maxWidth: "520px",
+              lineHeight: "1.75", maxWidth: "520px",
               fontWeight: 300,
               opacity: transitioning ? 0 : 1,
               transform: transitioning ? "translateY(10px)" : "translateY(0)",
@@ -219,9 +264,7 @@ export default function Hero() {
           {/* Buttons */}
           <div
             style={{
-              display: "flex",
-              gap: "16px",
-              marginTop: "44px",
+              display: "flex", gap: "16px", marginTop: "44px",
               flexWrap: "wrap",
               opacity: transitioning ? 0 : 1,
               transform: transitioning ? "translateY(10px)" : "translateY(0)",
@@ -231,16 +274,10 @@ export default function Hero() {
             <Link href={slide.cta.href} style={{ textDecoration: "none" }}>
               <button
                 style={{
-                  background: "var(--gold)",
-                  color: "var(--foreground)",
-                  border: "none",
-                  padding: "17px 38px",
-                  borderRadius: "9999px",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
+                  background: "var(--gold)", color: "var(--foreground)",
+                  border: "none", padding: "17px 38px", borderRadius: "9999px",
+                  fontSize: "12px", fontWeight: 700, letterSpacing: "0.12em",
+                  textTransform: "uppercase", cursor: "pointer",
                   transition: "all 0.25s ease",
                   boxShadow: "0 4px 20px rgba(201,169,110,0.35)",
                 }}
@@ -262,16 +299,11 @@ export default function Hero() {
             <Link href={slide.ctaSecondary.href} style={{ textDecoration: "none" }}>
               <button
                 style={{
-                  background: "transparent",
-                  color: "#fff",
+                  background: "transparent", color: "#fff",
                   border: "1.5px solid rgba(255,255,255,0.45)",
-                  padding: "16px 36px",
-                  borderRadius: "9999px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
+                  padding: "16px 36px", borderRadius: "9999px",
+                  fontSize: "12px", fontWeight: 600, letterSpacing: "0.1em",
+                  textTransform: "uppercase", cursor: "pointer",
                   transition: "all 0.25s ease",
                 }}
                 onMouseEnter={(e) => {
@@ -294,29 +326,19 @@ export default function Hero() {
         {/* Slide Controls */}
         <div
           style={{
-            position: "absolute",
-            bottom: "48px",
-            left: "48px",
-            display: "flex",
-            alignItems: "center",
-            gap: "20px",
+            position: "absolute", bottom: "48px", left: "48px",
+            display: "flex", alignItems: "center", gap: "20px",
           }}
         >
           <button
             onClick={handlePrev}
             style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
+              width: "44px", height: "44px", borderRadius: "50%",
               border: "1px solid rgba(255,255,255,0.3)",
               background: "rgba(255,255,255,0.06)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "18px",
-              transition: "all 0.2s ease",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "18px", transition: "all 0.2s ease",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.15)";
@@ -332,18 +354,15 @@ export default function Hero() {
           </button>
 
           <div style={{ display: "flex", gap: "8px" }}>
-            {slides.map((_, i) => (
+            {SLIDE_CONFIGS.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
                 style={{
                   width: i === current ? "28px" : "8px",
-                  height: "3px",
-                  borderRadius: "2px",
+                  height: "3px", borderRadius: "2px",
                   background: i === current ? "var(--gold)" : "rgba(255,255,255,0.35)",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 0,
+                  border: "none", cursor: "pointer", padding: 0,
                   transition: "all 0.4s ease",
                 }}
                 aria-label={`Go to slide ${i + 1}`}
@@ -354,18 +373,12 @@ export default function Hero() {
           <button
             onClick={handleNext}
             style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
+              width: "44px", height: "44px", borderRadius: "50%",
               border: "1px solid rgba(255,255,255,0.3)",
               background: "rgba(255,255,255,0.06)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "18px",
-              transition: "all 0.2s ease",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "18px", transition: "all 0.2s ease",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.15)";
@@ -384,49 +397,36 @@ export default function Hero() {
         {/* Slide counter */}
         <div
           style={{
-            position: "absolute",
-            bottom: "56px",
-            right: "48px",
-            color: "rgba(255,255,255,0.5)",
-            fontSize: "12px",
-            letterSpacing: "0.15em",
-            fontWeight: 500,
+            position: "absolute", bottom: "56px", right: "48px",
+            color: "rgba(255,255,255,0.5)", fontSize: "12px",
+            letterSpacing: "0.15em", fontWeight: 500,
           }}
         >
-          {String(current + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
+          {String(current + 1).padStart(2, "0")} / {String(SLIDE_CONFIGS.length).padStart(2, "0")}
         </div>
       </div>
 
       {/* Trust Strip */}
       <div
         style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
+          position: "absolute", bottom: 0, left: 0, right: 0,
           zIndex: 3,
           background: "rgba(201,169,110,0.15)",
           backdropFilter: "blur(10px)",
           borderTop: "1px solid rgba(201,169,110,0.25)",
           padding: "14px 48px",
-          display: "flex",
-          justifyContent: "center",
-          gap: "48px",
-          flexWrap: "wrap",
+          display: "flex", justifyContent: "center",
+          gap: "48px", flexWrap: "wrap",
         }}
       >
         {trustItems.map((item, i) => (
           <div
             key={i}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
+              display: "flex", alignItems: "center", gap: "10px",
               color: "rgba(255,255,255,0.85)",
-              fontSize: "12px",
-              fontWeight: 500,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
+              fontSize: "12px", fontWeight: 500,
+              letterSpacing: "0.1em", textTransform: "uppercase",
             }}
           >
             <span style={{ color: "var(--gold)", fontSize: "10px" }}>{item.icon}</span>

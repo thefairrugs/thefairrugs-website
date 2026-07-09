@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 
 const benefits = [
   "Exclusive trade pricing — up to 30% below retail",
@@ -150,7 +149,7 @@ export default function DesignerSection() {
             </div>
           </div>
 
-          {/* Right: Image + stats */}
+          {/* Right: Premium CSS visual + stats */}
           <div style={{ position: "relative" }}>
             <div
               style={{
@@ -159,23 +158,54 @@ export default function DesignerSection() {
                 aspectRatio: "5/6",
                 position: "relative",
                 boxShadow: "var(--shadow-xl)",
+                background: "linear-gradient(160deg, #1a1208 0%, #2a1f14 50%, #1c1510 100%)",
               }}
             >
-              <Image
-                src="/images/rug4.jpg"
-                alt="Interior designer using The Fair Rugs"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                style={{ objectFit: "cover" }}
-              />
-              {/* Dark overlay for professionalism */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(to bottom, rgba(26,18,8,0.15) 0%, rgba(26,18,8,0.5) 100%)",
-                }}
-              />
+              {/* Elegant grid pattern representing a floor plan / design blueprint */}
+              <div style={{ position: "absolute", inset: 0 }}>
+                {/* Grid lines */}
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={`dh${i}`} style={{
+                    position: "absolute", left: "5%", right: "5%",
+                    top: `${6 + i * 8}%`, height: "1px",
+                    background: i % 4 === 0 ? "rgba(201,169,110,0.18)" : "rgba(255,255,255,0.04)",
+                  }} />
+                ))}
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={`dv${i}`} style={{
+                    position: "absolute", top: "6%", bottom: "6%",
+                    left: `${5 + i * 10}%`, width: "1px",
+                    background: i % 3 === 0 ? "rgba(201,169,110,0.14)" : "rgba(255,255,255,0.04)",
+                  }} />
+                ))}
+                {/* Central compass / medallion */}
+                <div style={{
+                  position: "absolute", top: "38%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "160px", height: "160px",
+                  border: "1px solid rgba(201,169,110,0.25)",
+                  borderRadius: "50%",
+                }} />
+                <div style={{
+                  position: "absolute", top: "38%", left: "50%",
+                  transform: "translate(-50%, -50%) rotate(45deg)",
+                  width: "100px", height: "100px",
+                  border: "1px solid rgba(201,169,110,0.2)",
+                }} />
+                <div style={{
+                  position: "absolute", top: "38%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "24px", height: "24px",
+                  background: "rgba(201,169,110,0.25)",
+                  borderRadius: "50%",
+                  border: "1px solid rgba(201,169,110,0.5)",
+                }} />
+              </div>
+              {/* Gradient overlay */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(to bottom, rgba(26,18,8,0.15) 0%, rgba(26,18,8,0.55) 100%)",
+              }} />
               {/* Interior text overlay */}
               <div
                 style={{
