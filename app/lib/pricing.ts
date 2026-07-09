@@ -99,9 +99,10 @@ export function computePrice(
   rugTypeId: string,
   pileMultiplier = 1.0,
   discount?: { enabled: boolean; type: "percent" | "fixed"; value: number },
-  pricing?: PricingItem[]
+  pricing?: PricingItem[],
+  priceAdjustment = 0  // per-product +/- per sqft on top of category base
 ): PriceResult {
-  const pricePerSqft = getPricePerSqft(rugTypeId, pricing) * pileMultiplier;
+  const pricePerSqft = (getPricePerSqft(rugTypeId, pricing) + priceAdjustment) * pileMultiplier;
   const basePrice = sqft * pricePerSqft;
 
   let discountedPrice: number | null = null;

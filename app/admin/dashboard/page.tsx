@@ -13,6 +13,14 @@ interface Inquiry {
   quantity?: string; country?: string; productTitle?: string;
   selectedSize?: string; estimatedPrice?: string; adminNotes?: string;
   updatedAt?: string;
+  // Quote/Custom inquiry fields
+  size?: string; material?: string; primaryColor?: string; secondaryColor?: string;
+  style?: string; room?: string; notes?: string; designImage?: string;
+  // Order fields
+  orderItems?: { product: string; size: string; qty: number; price: number }[];
+  totalAmount?: number; paymentMethod?: string;
+  // Reply history
+  replies?: { date: string; channel: string; message: string; by: string }[];
 }
 
 interface Product {
@@ -25,6 +33,12 @@ interface Product {
   pile?: string; shape?: string; origin?: string; subtitle?: string;
   leadTime?: string; processingTime?: string; deliveryTime?: string;
   keywords?: string[];
+  // New product attributes
+  primaryColor?: string; secondaryColor?: string;
+  homeStyle?: string; occasion?: string; room?: string;
+  rugTypeTags?: string; pileHeight?: string;
+  // Smart pricing adjustment
+  priceAdjustment?: number;  // +/- per sqft added on top of base price
 }
 
 interface Category {
@@ -1140,6 +1154,10 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
     material: "", construction: "Hand Tufted", pile: "Medium Pile (10mm)",
     shape: "Rectangle", longDescription: "", features: "",
     badge: "", processingTime: "3–5 Weeks", deliveryTime: "", inStock: true,
+    // New attributes
+    primaryColor: "", secondaryColor: "",
+    homeStyle: "", occasion: "", room: "", rugTypeTags: "", pileHeight: "",
+    priceAdjustment: 0,
   });
   const [images, setImages] = useState<string[]>([]);
   const [video, setVideo] = useState("");
@@ -1154,12 +1172,13 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
     const payload = {
       ...form,
       features: form.features.split("\n").map((f) => f.trim()).filter(Boolean),
-      images: images.length > 0 ? images : ["/images/rug1.png"],
-      image: images[0] || "/images/rug1.png",
+      images: images.length > 0 ? images : [],
+      image: images[0] || "",
       video: video || "",
       keywords: keywords.filter(Boolean),
       // Keep leadTime for backward compatibility
       leadTime: form.processingTime,
+      priceAdjustment: Number(form.priceAdjustment) || 0,
     };
     try {
       await fetch("/api/admin/products", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload) });
@@ -1251,9 +1270,68 @@ function AddProductSection({ categories, onSaved }: { categories: Category[]; on
             </div>
           </div>
 
-          <div style={{ padding: "16px", background: "#f0f4e8", borderRadius: "8px", border: "1px solid #c8d4b8" }}>
-            <p style={{ fontSize: "13px", color: "#4a5c3a", fontWeight: 600 }}>✅ Pricing handled automatically</p>
-            <p style={{ fontSize: "12px", color: "#5c5a52", marginTop: "4px" }}>All sizes and prices are calculated automatically by the shared pricing engine. No need to enter prices manually.</p>
+          {/* Product Attributes */}
+          <div style={{ borderTop: "1px solid #f0ece4", paddingTop: "20px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#5c5a52", marginBottom: "14px" }}>Product Attributes (Etsy-style)</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div>
+                <label style={labelStyle}>Primary Color</label>
+                <input type="text" placeholder="e.g. Ivory, Navy, Terracotta" value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Secondary Color</label>
+                <input type="text" placeholder="e.g. Gold, Sage, Cream" value={form.secondaryColor} onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Home Style</label>
+                <select value={form.homeStyle} onChange={(e) => setForm({ ...form, homeStyle: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Traditional", "Modern", "Bohemian", "Scandinavian", "Moroccan", "Industrial", "Farmhouse", "Coastal", "Minimalist", "Transitional", "Art Deco", "Mid-Century Modern"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Occasion</label>
+                <select value={form.occasion} onChange={(e) => setForm({ ...form, occasion: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Everyday Use", "Gift", "Wedding", "Housewarming", "Holiday", "Commercial / Hotel", "Special Occasion"].map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Room</label>
+                <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Living Room", "Bedroom", "Dining Room", "Hallway / Entryway", "Home Office", "Kitchen", "Bathroom", "Kids Room", "Outdoor / Patio", "Commercial"].map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Pile Height</label>
+                <select value={form.pileHeight} onChange={(e) => setForm({ ...form, pileHeight: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Flat Weave (0mm)", "Low Pile (5mm)", "Medium Pile (10mm)", "High Pile (15mm)", "Shaggy (20mm+)"].map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Rug Type Tags (comma separated)</label>
+                <input type="text" placeholder="e.g. Oushak, Vintage, Persian, Geometric" value={form.rugTypeTags} onChange={(e) => setForm({ ...form, rugTypeTags: e.target.value })} style={inputStyle} />
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Price Adjustment */}
+          <div style={{ padding: "16px 20px", background: "#f0f4e8", borderRadius: "8px", border: "1px solid #c8d4b8" }}>
+            <p style={{ fontSize: "13px", color: "#4a5c3a", fontWeight: 700, marginBottom: "10px" }}>💲 Smart Pricing — Price Adjustment</p>
+            <p style={{ fontSize: "12px", color: "#5c5a52", marginBottom: "12px" }}>Base price is set per category in Pricing Settings. Add an adjustment (+/-) for this specific product.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "13px", color: "#5c5a52" }}>Adjustment: $</span>
+              <input
+                type="number" step="0.5" min="-50" max="200"
+                value={form.priceAdjustment}
+                onChange={(e) => setForm({ ...form, priceAdjustment: parseFloat(e.target.value) || 0 })}
+                style={{ ...inputStyle, width: "100px", fontWeight: 700 }}
+                placeholder="0"
+              />
+              <span style={{ fontSize: "13px", color: "#5c5a52" }}>/sq.ft (0 = use base price exactly)</span>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: "12px" }}>
@@ -1285,6 +1363,12 @@ function EditProductSection({ product, categories, onSaved, onCancel }: {
     badge: product.badge || "", processingTime: initProcessingTime,
     deliveryTime: initDeliveryTime, inStock: product.inStock,
     active: product.active !== false,
+    // New attributes
+    primaryColor: product.primaryColor || "", secondaryColor: product.secondaryColor || "",
+    homeStyle: product.homeStyle || "", occasion: product.occasion || "",
+    room: product.room || "", rugTypeTags: product.rugTypeTags || "",
+    pileHeight: product.pileHeight || "",
+    priceAdjustment: product.priceAdjustment || 0,
   });
   const [images, setImages] = useState<string[]>(
     (product.images && product.images.length > 0) ? product.images : [product.image].filter(Boolean)
@@ -1396,6 +1480,68 @@ function EditProductSection({ product, categories, onSaved, onCancel }: {
               <select value={form.active ? "true" : "false"} onChange={(e) => setForm({ ...form, active: e.target.value === "true" })} style={selectStyle}>
                 <option value="true">Active</option><option value="false">Hidden</option>
               </select>
+            </div>
+          </div>
+
+          {/* Product Attributes */}
+          <div style={{ borderTop: "1px solid #f0ece4", paddingTop: "20px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#5c5a52", marginBottom: "14px" }}>Product Attributes (Etsy-style)</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div>
+                <label style={labelStyle}>Primary Color</label>
+                <input type="text" placeholder="e.g. Ivory, Navy, Terracotta" value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Secondary Color</label>
+                <input type="text" placeholder="e.g. Gold, Sage, Cream" value={form.secondaryColor} onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Home Style</label>
+                <select value={form.homeStyle} onChange={(e) => setForm({ ...form, homeStyle: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Traditional", "Modern", "Bohemian", "Scandinavian", "Moroccan", "Industrial", "Farmhouse", "Coastal", "Minimalist", "Transitional", "Art Deco", "Mid-Century Modern"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Occasion</label>
+                <select value={form.occasion} onChange={(e) => setForm({ ...form, occasion: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Everyday Use", "Gift", "Wedding", "Housewarming", "Holiday", "Commercial / Hotel", "Special Occasion"].map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Room</label>
+                <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Living Room", "Bedroom", "Dining Room", "Hallway / Entryway", "Home Office", "Kitchen", "Bathroom", "Kids Room", "Outdoor / Patio", "Commercial"].map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Pile Height</label>
+                <select value={form.pileHeight} onChange={(e) => setForm({ ...form, pileHeight: e.target.value })} style={selectStyle}>
+                  <option value="">Select…</option>
+                  {["Flat Weave (0mm)", "Low Pile (5mm)", "Medium Pile (10mm)", "High Pile (15mm)", "Shaggy (20mm+)"].map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Rug Type Tags (comma separated)</label>
+                <input type="text" placeholder="e.g. Oushak, Vintage, Persian, Geometric" value={form.rugTypeTags} onChange={(e) => setForm({ ...form, rugTypeTags: e.target.value })} style={inputStyle} />
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Price Adjustment */}
+          <div style={{ padding: "16px 20px", background: "#f0f4e8", borderRadius: "8px", border: "1px solid #c8d4b8" }}>
+            <p style={{ fontSize: "13px", color: "#4a5c3a", fontWeight: 700, marginBottom: "10px" }}>💲 Smart Pricing — Price Adjustment</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "13px", color: "#5c5a52" }}>Adjustment: $</span>
+              <input
+                type="number" step="0.5" min="-50" max="200"
+                value={form.priceAdjustment}
+                onChange={(e) => setForm({ ...form, priceAdjustment: parseFloat(e.target.value) || 0 })}
+                style={{ ...inputStyle, width: "100px", fontWeight: 700 }}
+              />
+              <span style={{ fontSize: "13px", color: "#5c5a52" }}>/sq.ft (0 = category base price)</span>
             </div>
           </div>
 
@@ -1581,27 +1727,38 @@ function DiscountSection({ discount, onSaved }: { discount: DiscountConfig; onSa
 }
 
 // ─── Inquiries Section ────────────────────────────────────────────────────────
+const INQUIRY_STATUSES = [
+  { value: "new", label: "New", bg: "#fee2e2", color: "#dc2626" },
+  { value: "contacted", label: "Contacted", bg: "#fef9c3", color: "#92400e" },
+  { value: "quotation_sent", label: "Quotation Sent", bg: "#dbeafe", color: "#1d4ed8" },
+  { value: "order_confirmed", label: "Order Confirmed", bg: "#d1fae5", color: "#065f46" },
+  { value: "closed", label: "Closed", bg: "#f1f5f9", color: "#64748b" },
+];
+
+function getStatusStyle(status: string) {
+  return INQUIRY_STATUSES.find((s) => s.value === status) || INQUIRY_STATUSES[0];
+}
+
 function InquiriesSection({ inquiries, loading, onRefresh, filter }: { inquiries: Inquiry[]; loading: boolean; onRefresh: () => void; filter: string }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
 
   const filtered = inquiries.filter((i) => {
+    const matchType = !filter || filter === "all" || i.type === filter;
     const matchStatus = statusFilter === "all" || i.status === statusFilter;
     const matchSearch = !search || JSON.stringify(i).toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchSearch;
+    return matchType && matchStatus && matchSearch;
   });
 
   return (
     <div>
       <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
-        <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, minWidth: "200px", flex: 1 }} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+        <input type="text" placeholder="Search name, email, product…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, minWidth: "200px", flex: 1 }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...selectStyle, width: "auto", minWidth: "160px" }}>
           <option value="all">All Status</option>
-          <option value="new">New</option>
-          <option value="replied">Replied</option>
-          <option value="closed">Closed</option>
+          {INQUIRY_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <span style={{ fontSize: "13px", color: "#5c5a52" }}>{filtered.length} inquiries</span>
+        <span style={{ fontSize: "13px", color: "#5c5a52", whiteSpace: "nowrap" }}>{filtered.length} inquiries</span>
         <button onClick={onRefresh} style={{ padding: "9px 16px", background: "#f0ece4", border: "none", borderRadius: "8px", fontSize: "13px", cursor: "pointer" }}>↻ Refresh</button>
       </div>
       {loading ? (
@@ -1616,31 +1773,44 @@ function InquiriesSection({ inquiries, loading, onRefresh, filter }: { inquiries
 function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: Inquiry[]; onRefresh: () => void; compact?: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const [replyMsg, setReplyMsg] = useState("");
+  const [replyChannel, setReplyChannel] = useState("email");
+  const [saving, setSaving] = useState(false);
 
   const updateStatus = async (id: string, status: string) => {
+    setSaving(true);
     await fetch("/api/inquiries", { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ id, status }) });
     onRefresh();
+    setSaving(false);
   };
 
-  const updateNotes = async (id: string) => {
+  const saveNotes = async (id: string) => {
+    setSaving(true);
     await fetch("/api/inquiries", { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ id, notes }) });
     onRefresh();
+    setSaving(false);
+  };
+
+  const addReply = async (inq: Inquiry) => {
+    if (!replyMsg.trim()) return;
+    const reply = { date: new Date().toISOString(), channel: replyChannel, message: replyMsg.trim(), by: "Admin" };
+    const replies = [...(inq.replies || []), reply];
+    setSaving(true);
+    await fetch("/api/inquiries", { method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ id: inq.id, replies, status: "contacted" }) });
+    setReplyMsg("");
+    onRefresh();
+    setSaving(false);
   };
 
   const deleteInquiry = async (id: string) => {
-    if (!confirm("Delete this inquiry?")) return;
+    if (!confirm("Delete this inquiry permanently?")) return;
     await fetch(`/api/inquiries?id=${id}`, { method: "DELETE", headers: { "x-admin-key": getAdminKey() } });
     onRefresh();
   };
 
-  const statusColors: Record<string, { bg: string; color: string }> = {
-    new: { bg: "#fee2e2", color: "#dc2626" },
-    replied: { bg: "#d1fae5", color: "#065f46" },
-    closed: { bg: "#f1f5f9", color: "#64748b" },
-  };
-
   const typeColors: Record<string, string> = {
     contact: "#4a5c3a", product: "#7a8f6a", b2b: "#6b4f35", custom: "#b8975a",
+    order: "#1d4ed8", quote: "#7c3aed",
   };
 
   if (inquiries.length === 0) {
@@ -1648,76 +1818,149 @@ function InquiryTable({ inquiries, onRefresh, compact = false }: { inquiries: In
   }
 
   return (
-    <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ background: "#f8f6f0", borderBottom: "1px solid #e5e7eb" }}>
-            {(compact ? ["From", "Type", "Status", "Date"] : ["From", "Type", "Subject", "Status", "Date", "Actions"]).map((h) => (
-              <th key={h} style={{ padding: "10px 14px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#5c5a52", textAlign: "left" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {inquiries.map((inq, i) => (
-            <>
-              <tr key={inq.id} style={{ borderBottom: "1px solid #f0ece4", background: inq.status === "new" ? "#fffbeb" : i % 2 === 0 ? "#fff" : "#fafaf8", cursor: "pointer" }}
-                onClick={() => { setExpanded(expanded === inq.id ? null : inq.id); setNotes(inq.adminNotes || ""); }}>
-                <td style={{ padding: "12px 14px" }}>
-                  <p style={{ fontSize: "13px", fontWeight: 600, color: "#1c1c1a" }}>{inq.name || inq.companyName || "—"}</p>
-                  <p style={{ fontSize: "11px", color: "#7a8f6a" }}>{inq.email}</p>
-                </td>
-                <td style={{ padding: "12px 14px" }}>
-                  <span style={{ padding: "3px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", background: `${typeColors[inq.type] || "#7a8f6a"}20`, color: typeColors[inq.type] || "#7a8f6a" }}>
-                    {inq.type}
-                  </span>
-                </td>
-                {!compact && (
-                  <td style={{ padding: "12px 14px", fontSize: "13px", color: "#5c5a52", maxWidth: "220px" }}>
-                    <p style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {inq.productTitle || inq.message?.slice(0, 50) || inq.businessType || "—"}
-                    </p>
-                  </td>
+    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+      {inquiries.map((inq, i) => {
+        const st = getStatusStyle(inq.status);
+        const isExpanded = expanded === inq.id;
+        const phone = inq.phone || inq.phone_number || "";
+        const waPhone = phone.replace(/\D/g, "");
+        const waText = encodeURIComponent(`Hello ${inq.name || inq.companyName || ""},\n\nThank you for your inquiry to The Fair Rugs.\n\n`);
+
+        return (
+          <div key={inq.id} style={{ background: inq.status === "new" ? "#fffbeb" : i % 2 === 0 ? "#fff" : "#fafaf8", border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
+            {/* Row */}
+            <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr auto auto auto" : "1fr 110px 160px 130px auto", gap: "12px", alignItems: "center", padding: "14px 16px", cursor: "pointer" }}
+              onClick={() => { setExpanded(isExpanded ? null : inq.id); setNotes(inq.adminNotes || ""); setReplyMsg(""); }}>
+              {/* From */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a" }}>{inq.name || inq.companyName || "—"}</p>
+                  <span style={{ padding: "2px 8px", borderRadius: "9999px", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", background: `${typeColors[inq.type] || "#7a8f6a"}20`, color: typeColors[inq.type] || "#7a8f6a" }}>{inq.type}</span>
+                  {inq.status === "new" && <span style={{ padding: "2px 8px", background: "#fee2e2", color: "#dc2626", borderRadius: "9999px", fontSize: "9px", fontWeight: 800, textTransform: "uppercase" }}>NEW</span>}
+                </div>
+                <p style={{ fontSize: "12px", color: "#5c5a52", marginTop: "2px" }}>{inq.email} {phone ? `· ${phone}` : ""}</p>
+                {!compact && <p style={{ fontSize: "12px", color: "#8a8878", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inq.productTitle || inq.notes?.slice(0, 60) || inq.message?.slice(0, 60) || inq.businessType || ""}</p>}
+              </div>
+              {/* Date */}
+              {!compact && <p style={{ fontSize: "12px", color: "#8a8878", textAlign: "center" }}>{new Date(inq.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</p>}
+              {/* Status */}
+              {!compact && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <select value={inq.status} onChange={(e) => updateStatus(inq.id, e.target.value)}
+                    style={{ padding: "5px 10px", borderRadius: "9999px", border: "none", fontSize: "11px", fontWeight: 700, background: st.bg, color: st.color, cursor: "pointer", outline: "none" }}>
+                    {INQUIRY_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+              )}
+              {/* Quick Actions */}
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                {inq.email && <a href={`mailto:${inq.email}?subject=Re: Your Inquiry — The Fair Rugs`} style={{ padding: "5px 10px", background: "#e0f2fe", color: "#0369a1", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>✉ Email</a>}
+                {waPhone && <a href={`https://wa.me/${waPhone}?text=${waText}`} target="_blank" rel="noopener noreferrer" style={{ padding: "5px 10px", background: "#dcfce7", color: "#16a34a", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>💬 WA</a>}
+                <button onClick={() => deleteInquiry(inq.id)} style={{ padding: "5px 8px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "10px", cursor: "pointer" }}>×</button>
+                <span style={{ fontSize: "16px", color: "#8a8878", cursor: "pointer" }}>{isExpanded ? "▲" : "▼"}</span>
+              </div>
+            </div>
+
+            {/* Expanded detail panel */}
+            {isExpanded && !compact && (
+              <div style={{ borderTop: "1px solid #f0ece4", padding: "20px", background: "#f8f6f0" }}>
+                {/* All fields */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "16px" }}>
+                  {Object.entries(inq)
+                    .filter(([k]) => !["id", "status", "createdAt", "updatedAt", "adminNotes", "replies", "orderItems"].includes(k))
+                    .map(([k, v]) => v && typeof v !== "object" ? (
+                      <div key={k} style={{ background: "#fff", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                        <span style={{ fontSize: "9px", color: "#8a8878", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.06em" }}>{k.replace(/([A-Z])/g, " $1").trim()}</span>
+                        <p style={{ fontSize: "13px", color: "#1c1c1a", marginTop: "4px", wordBreak: "break-word" }}>{String(v)}</p>
+                      </div>
+                    ) : null)}
+                </div>
+
+                {/* Design image if present */}
+                {inq.designImage && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Design Reference Image</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={inq.designImage} alt="Design reference" style={{ maxWidth: "200px", maxHeight: "200px", objectFit: "contain", borderRadius: "8px", border: "1px solid #e5e7eb" }} />
+                  </div>
                 )}
-                <td style={{ padding: "12px 14px" }}>
-                  <span style={{ padding: "3px 9px", borderRadius: "9999px", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", ...statusColors[inq.status] || statusColors.new }}>
-                    {inq.status}
-                  </span>
-                </td>
-                <td style={{ padding: "12px 14px", fontSize: "12px", color: "#8a8878", whiteSpace: "nowrap" }}>
-                  {new Date(inq.createdAt).toLocaleDateString()}
-                </td>
-                {!compact && (
-                  <td style={{ padding: "12px 14px" }}>
-                    <div style={{ display: "flex", gap: "6px" }} onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => updateStatus(inq.id, "replied")} style={{ padding: "4px 10px", background: "#d1fae5", color: "#065f46", border: "none", borderRadius: "6px", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}>✓ Replied</button>
-                      <a href={`mailto:${inq.email}`} style={{ padding: "4px 10px", background: "#f0ece4", color: "#4a5c3a", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>Email</a>
-                      {inq.phone || inq.phone_number ? (
-                        <a href={`https://wa.me/${(inq.phone || inq.phone_number || "").replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 10px", background: "#dcfce7", color: "#16a34a", borderRadius: "6px", fontSize: "10px", fontWeight: 700, textDecoration: "none" }}>WhatsApp</a>
-                      ) : null}
-                      <button onClick={() => deleteInquiry(inq.id)} style={{ padding: "4px 8px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "10px", cursor: "pointer" }}>×</button>
+
+                {/* Order items if present */}
+                {inq.orderItems && inq.orderItems.length > 0 && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase" }}>Order Items</p>
+                    <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: "8px", overflow: "hidden" }}>
+                      <thead><tr style={{ background: "#f0ece4" }}>{["Product","Size","Qty","Price"].map((h) => <th key={h} style={{ padding: "8px 12px", fontSize: "10px", fontWeight: 700, textAlign: "left", textTransform: "uppercase", color: "#5c5a52" }}>{h}</th>)}</tr></thead>
+                      <tbody>{inq.orderItems.map((oi, idx) => (
+                        <tr key={idx} style={{ borderTop: "1px solid #f0ece4" }}>
+                          <td style={{ padding: "8px 12px", fontSize: "13px" }}>{oi.product}</td>
+                          <td style={{ padding: "8px 12px", fontSize: "13px" }}>{oi.size}</td>
+                          <td style={{ padding: "8px 12px", fontSize: "13px" }}>{oi.qty}</td>
+                          <td style={{ padding: "8px 12px", fontSize: "13px", fontWeight: 700 }}>${oi.price}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                    {inq.totalAmount && <p style={{ fontSize: "14px", fontWeight: 800, color: "#4a5c3a", marginTop: "8px" }}>Total: ${inq.totalAmount}</p>}
+                  </div>
+                )}
+
+                {/* Two columns: Notes + Reply */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  {/* Internal Notes */}
+                  <div>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Internal Notes</p>
+                    <textarea rows={3} placeholder="Private notes (not sent to customer)…" value={notes} onChange={(e) => setNotes(e.target.value)}
+                      style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", resize: "vertical", background: "#fff" }} />
+                    <button onClick={() => saveNotes(inq.id)} disabled={saving} style={{ marginTop: "8px", padding: "8px 18px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}>
+                      {saving ? "Saving…" : "Save Notes"}
+                    </button>
+                  </div>
+
+                  {/* Reply Tracker */}
+                  <div>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Log a Reply</p>
+                    <select value={replyChannel} onChange={(e) => setReplyChannel(e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", marginBottom: "8px", background: "#fff" }}>
+                      <option value="email">📧 Email</option>
+                      <option value="whatsapp">💬 WhatsApp</option>
+                      <option value="phone">📞 Phone Call</option>
+                      <option value="note">📝 Internal Note</option>
+                    </select>
+                    <textarea rows={2} placeholder="Summarise what you replied…" value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
+                      style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", resize: "none", background: "#fff" }} />
+                    <button onClick={() => addReply(inq)} disabled={saving || !replyMsg.trim()} style={{ marginTop: "8px", padding: "8px 18px", background: "#1d4ed8", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, fontSize: "12px", cursor: "pointer" }}>
+                      Log Reply
+                    </button>
+                    {/* Quick reply buttons */}
+                    <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
+                      {inq.email && <a href={`mailto:${inq.email}?subject=Re: Your Inquiry — The Fair Rugs`} style={{ padding: "6px 12px", background: "#e0f2fe", color: "#0369a1", borderRadius: "6px", fontSize: "11px", fontWeight: 700, textDecoration: "none" }}>Open Email →</a>}
+                      {waPhone && <a href={`https://wa.me/${waPhone}?text=${waText}`} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", background: "#dcfce7", color: "#16a34a", borderRadius: "6px", fontSize: "11px", fontWeight: 700, textDecoration: "none" }}>Open WhatsApp →</a>}
                     </div>
-                  </td>
-                )}
-              </tr>
-              {expanded === inq.id && !compact && (
-                <tr key={`${inq.id}-detail`} style={{ background: "#f8f6f0", borderBottom: "1px solid #e5e7eb" }}>
-                  <td colSpan={6} style={{ padding: "16px 20px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                      {Object.entries(inq).filter(([k]) => !["id", "status", "createdAt", "updatedAt", "adminNotes"].includes(k)).map(([k, v]) => (
-                        v ? <div key={k}><span style={{ fontSize: "10px", color: "#8a8878", textTransform: "uppercase", fontWeight: 700 }}>{k}</span><p style={{ fontSize: "13px", color: "#1c1c1a", marginTop: "2px" }}>{String(v)}</p></div> : null
+                  </div>
+                </div>
+
+                {/* Reply History */}
+                {inq.replies && inq.replies.length > 0 && (
+                  <div style={{ marginTop: "16px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#5c5a52", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Reply History ({inq.replies.length})</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {[...inq.replies].reverse().map((r, idx) => (
+                        <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px 14px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                          <span style={{ fontSize: "16px" }}>{r.channel === "email" ? "📧" : r.channel === "whatsapp" ? "💬" : r.channel === "phone" ? "📞" : "📝"}</span>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: "13px", color: "#1c1c1a" }}>{r.message}</p>
+                            <p style={{ fontSize: "11px", color: "#8a8878", marginTop: "4px" }}>{r.by} · {new Date(r.date).toLocaleString()} · {r.channel}</p>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <textarea rows={2} placeholder="Admin notes..." value={notes} onChange={(e) => setNotes(e.target.value)} style={{ flex: 1, padding: "8px 12px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "13px", resize: "none" }} />
-                      <button onClick={() => updateNotes(inq.id)} style={{ padding: "8px 16px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>Save Notes</button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </>
-          ))}
-        </tbody>
-      </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

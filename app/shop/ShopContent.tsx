@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { constructionToRugType, computePrice, sizes } from "../lib/pricing";
+import { constructionToRugType, computePrice, sizes, type PricingItem } from "../lib/pricing";
 
 // ── Default reference size for "from $X" display (5×8 ft = 40 sqft) ──────────
 const DISPLAY_SIZE = sizes.find((s) => s.name === "5×8 ft") || { sqft: 40 };
@@ -36,6 +36,16 @@ interface Product {
   badge?: string | null;
   reviews?: number;
   active?: boolean;
+  // Smart pricing
+  priceAdjustment?: number;
+  // Attributes
+  primaryColor?: string;
+  secondaryColor?: string;
+  homeStyle?: string;
+  occasion?: string;
+  room?: string;
+  rugTypeTags?: string;
+  pileHeight?: string;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -70,6 +80,15 @@ export default function ShopContent() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [dbProducts, setDbProducts] = useState<Product[] | null>(null);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [pricingData, setPricingData] = useState<PricingItem[]>([]);
+
+  // Fetch live pricing config
+  useEffect(() => {
+    fetch("/api/admin/pricing")
+      .then((r) => r.json())
+      .then((data: PricingItem[]) => { if (Array.isArray(data)) setPricingData(data); })
+      .catch(() => {});
+  }, []);
 
   // Fetch discount config (live)
   useEffect(() => {
@@ -124,19 +143,19 @@ export default function ShopContent() {
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       if (sortBy === "price-asc") {
-        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction)).displayPrice;
-        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction)).displayPrice;
+        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction), 1.0, undefined, pricingData.length ? pricingData : undefined, a.priceAdjustment || 0).displayPrice;
+        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction), 1.0, undefined, pricingData.length ? pricingData : undefined, b.priceAdjustment || 0).displayPrice;
         return pa - pb;
       }
       if (sortBy === "price-desc") {
-        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction)).displayPrice;
-        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction)).displayPrice;
+        const pa = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(a.construction), 1.0, undefined, pricingData.length ? pricingData : undefined, a.priceAdjustment || 0).displayPrice;
+        const pb = computePrice(DISPLAY_SIZE.sqft, constructionToRugType(b.construction), 1.0, undefined, pricingData.length ? pricingData : undefined, b.priceAdjustment || 0).displayPrice;
         return pb - pa;
       }
       if (sortBy === "reviews") return (b.reviews || 0) - (a.reviews || 0);
       return 0;
     });
-  }, [filtered, sortBy]);
+  }, [filtered, sortBy, pricingData]);
 
   const currentCategory = categories.find((c) => c.id === activeCategory || c.slug === activeCategory);
 
@@ -299,7 +318,9 @@ export default function ShopContent() {
                   DISPLAY_SIZE.sqft,
                   rugTypeId,
                   1.0,
-                  discount ? { enabled: true, type: discount.type, value: discount.value } : undefined
+                  discount ? { enabled: true, type: discount.type, value: discount.value } : undefined,
+                  pricingData.length ? pricingData : undefined,
+                  rug.priceAdjustment || 0
                 );
                 return (
                   <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>
