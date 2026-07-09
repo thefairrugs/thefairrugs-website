@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 
 const steps = [
@@ -47,9 +46,9 @@ export default function Craftsmanship() {
             alignItems: "center",
           }}
         >
-          {/* Left: Image Stack */}
+          {/* Left: Artisan Visual */}
           <div style={{ position: "relative" }}>
-            {/* Main image */}
+            {/* Main visual — elegant CSS artisan scene */}
             <div
               style={{
                 position: "relative",
@@ -57,35 +56,86 @@ export default function Craftsmanship() {
                 overflow: "hidden",
                 aspectRatio: "4/5",
                 boxShadow: "var(--shadow-xl)",
+                background: "linear-gradient(160deg, #2a1f14 0%, #1a1208 40%, #0e0c08 100%)",
               }}
             >
-              <Image
-                src="/images/rug2.png"
-                alt="Artisan weaving a luxury rug"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                style={{ objectFit: "cover" }}
-              />
+              {/* Decorative loom / weave pattern */}
+              <div style={{ position: "absolute", inset: 0 }}>
+                {/* Horizontal threads */}
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <div
+                    key={`h${i}`}
+                    style={{
+                      position: "absolute",
+                      left: "10%", right: "10%",
+                      top: `${8 + i * 5}%`,
+                      height: "1px",
+                      background: i % 3 === 0
+                        ? "rgba(184,151,90,0.35)"
+                        : i % 3 === 1
+                        ? "rgba(184,151,90,0.12)"
+                        : "rgba(255,255,255,0.06)",
+                    }}
+                  />
+                ))}
+                {/* Vertical threads */}
+                {Array.from({ length: 14 }).map((_, i) => (
+                  <div
+                    key={`v${i}`}
+                    style={{
+                      position: "absolute",
+                      top: "8%", bottom: "8%",
+                      left: `${10 + i * 6}%`,
+                      width: "1px",
+                      background: i % 4 === 0
+                        ? "rgba(184,151,90,0.25)"
+                        : "rgba(255,255,255,0.04)",
+                    }}
+                  />
+                ))}
+                {/* Central motif — diamond */}
+                <div style={{
+                  position: "absolute", top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%) rotate(45deg)",
+                  width: "120px", height: "120px",
+                  border: "1.5px solid rgba(184,151,90,0.4)",
+                  borderRadius: "4px",
+                }}/>
+                <div style={{
+                  position: "absolute", top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%) rotate(45deg)",
+                  width: "80px", height: "80px",
+                  border: "1px solid rgba(184,151,90,0.25)",
+                  borderRadius: "4px",
+                }}/>
+                <div style={{
+                  position: "absolute", top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "32px", height: "32px",
+                  background: "rgba(184,151,90,0.15)",
+                  border: "1px solid rgba(184,151,90,0.5)",
+                  borderRadius: "50%",
+                }}/>
+              </div>
+              {/* Radial glow */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "radial-gradient(ellipse at 40% 45%, rgba(184,151,90,0.08) 0%, transparent 65%)",
+              }} />
               {/* Overlay text */}
               <div
                 style={{
                   position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
+                  bottom: 0, left: 0, right: 0,
                   padding: "40px 36px",
-                  background:
-                    "linear-gradient(to top, rgba(26,18,8,0.85) 0%, transparent 100%)",
+                  background: "linear-gradient(to top, rgba(10,8,4,0.95) 0%, transparent 100%)",
                 }}
               >
                 <p
                   style={{
                     fontFamily: "var(--font-cormorant), Georgia, serif",
-                    fontSize: "28px",
-                    fontStyle: "italic",
-                    color: "#fff",
-                    fontWeight: 300,
-                    lineHeight: 1.3,
+                    fontSize: "28px", fontStyle: "italic",
+                    color: "#fff", fontWeight: 300, lineHeight: 1.3,
                   }}
                 >
                   &ldquo;Each rug carries the
@@ -94,12 +144,9 @@ export default function Craftsmanship() {
                 </p>
                 <p
                   style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.15em",
-                    color: "var(--gold)",
-                    marginTop: "12px",
-                    textTransform: "uppercase",
-                    fontWeight: 600,
+                    fontSize: "11px", letterSpacing: "0.15em",
+                    color: "var(--gold)", marginTop: "12px",
+                    textTransform: "uppercase", fontWeight: 600,
                   }}
                 >
                   — Jaipur Workshop

@@ -260,10 +260,10 @@ export default function Footer() {
                 WhatsApp: +91 84169 19470
               </a>
               <a
-                href="mailto:hello@thefairrugs.com"
+                href="mailto:thefairrugs@gmail.com"
                 style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", textDecoration: "none" }}
               >
-                ✉ hello@thefairrugs.com
+                ✉ thefairrugs@gmail.com
               </a>
             </div>
           </div>
