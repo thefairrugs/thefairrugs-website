@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   SizeMasterItem, PricingItem, PriceResult,
   groupSizesByShape, SHAPE_ORDER, computePrice, parseCustomSqft, formatSqft,
@@ -37,16 +38,19 @@ const COLORS = [
   "#ffffff", "#d4b47e", "#a3b494", "#8a6a50", "#444444",
 ];
 
-const WEBSITE_DESIGNS = [
-  { id: "d1", name: "Vintage Oushak",    image: "/images/rug1.png" },
-  { id: "d2", name: "Moroccan Diamond",  image: "/images/rug2.png" },
-  { id: "d3", name: "Persian Heritage",  image: "/images/rug3.png" },
-  { id: "d4", name: "Geometric Modern",  image: "/images/rug4.jpg" },
-  { id: "d5", name: "Abstract Art",      image: "/images/rug5.jpg" },
-  { id: "d6", name: "Scandinavian Flat", image: "/images/rug6.png" },
-  { id: "d7", name: "Boho Earth",        image: "/images/rug7.png" },
-  { id: "d8", name: "Natural Jute",      image: "/images/rug8.jpeg" },
-];
+// Live products fetched from Admin Panel — NO hardcoded designs
+interface LiveProduct {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  category: string;
+  material: string;
+  image: string;
+  images?: string[];
+  badge?: string | null;
+  active?: boolean;
+}
 
 type DesignMode = "none" | "upload" | "browse";
 
@@ -62,6 +66,9 @@ export default function PriceCalculator() {
   const [sizeMaster, setSizeMaster]   = useState<SizeMasterItem[]>([]);
   const [pricingData, setPricingData] = useState<PricingItem[]>([]);
   const [loadingSizes, setLoadingSizes] = useState(true);
+  // Live products from Admin Panel — replaces hardcoded WEBSITE_DESIGNS
+  const [liveProducts, setLiveProducts]         = useState<LiveProduct[]>([]);
+  const [loadingProducts, setLoadingProducts]   = useState(false);
 
   useEffect(() => {
     // Fetch Size Master
@@ -99,6 +106,22 @@ export default function PriceCalculator() {
   const [uploadedRef,     setUploadedRef]     = useState<string | null>(null);
   const [notes,           setNotes]           = useState("");
   const [activeSection,   setActiveSection]   = useState(1);
+
+  // Fetch live products when user opens the browse gallery — cache: no-store so
+  // any add/edit/delete in Admin Panel is reflected immediately without a rebuild
+  useEffect(() => {
+    if (designMode !== "browse") return;
+    setLoadingProducts(true);
+    fetch("/api/admin/products", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: LiveProduct[]) => {
+        if (Array.isArray(data)) {
+          setLiveProducts(data.filter((p) => p.active !== false));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false));
+  }, [designMode]);
 
   const fileRef    = useRef<HTMLInputElement>(null);
   const refFileRef = useRef<HTMLInputElement>(null);
@@ -149,6 +172,13 @@ export default function PriceCalculator() {
   const currentSize = sizeMaster.find((s) => s.id === selectedSizeId);
   const currentPricing = pricingData.find((p) => p.id === rugTypeId);
   const pricePerSqft = currentPricing?.pricePerSqft ?? priceResult.pricePerSqft / pileMultiplier;
+
+  // Selected product from live Admin Panel data
+  const selectedProduct = liveProducts.find((p) => p.id === selectedDesign) ?? null;
+  // Image to show in preview: uploaded OR the first image of the selected live product
+  const selectedProductImage = selectedProduct
+    ? (selectedProduct.images?.[0] || selectedProduct.image)
+    : null;
 
   const toggleColor = (c: string) =>
     setSelectedColors((prev) =>
@@ -236,8 +266,8 @@ export default function PriceCalculator() {
                     <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "2px" }}>
                       {designMode === "upload" && uploadedDesign
                         ? "Custom design uploaded"
-                        : designMode === "browse" && selectedDesign
-                          ? WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.name
+                        : designMode === "browse" && selectedProduct
+                          ? selectedProduct.title
                           : "No design selected"}
                     </p>
                   )}
@@ -289,19 +319,73 @@ export default function PriceCalculator() {
                   )}
 
                   {designMode === "browse" && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
-                      {WEBSITE_DESIGNS.map((d) => (
-                        <button key={d.id} onClick={() => setSelectedDesign(d.id)}
-                          style={{ position: "relative", borderRadius: "var(--radius-md)", overflow: "hidden", border: `2px solid ${selectedDesign === d.id ? "var(--primary)" : "transparent"}`, cursor: "pointer", background: "none", padding: 0, aspectRatio: "1" }}>
-                          <img src={d.image} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          {selectedDesign === d.id && (
-                            <div style={{ position: "absolute", inset: 0, background: "rgba(74,92,58,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <span style={{ color: "#fff", fontSize: "18px" }}>✓</span>
+                    <div>
+                      {loadingProducts ? (
+                        /* Skeleton */
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                          {[1,2,3,4,5,6,7,8].map((i) => (
+                            <div key={i} style={{ aspectRatio: "1", borderRadius: "var(--radius-md)", background: "linear-gradient(90deg,#f0ece4 25%,#e8e4dc 50%,#f0ece4 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
+                          ))}
+                        </div>
+                      ) : liveProducts.length === 0 ? (
+                        <div style={{ padding: "28px", textAlign: "center", border: "1.5px dashed var(--border)", borderRadius: "var(--radius-md)", color: "var(--foreground-muted)" }}>
+                          <div style={{ fontSize: "32px", marginBottom: "8px" }}>🧶</div>
+                          <p style={{ fontSize: "13px", lineHeight: 1.6 }}>No products in the gallery yet.<br/>Add products in the Admin Panel and they will appear here instantly.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                            {liveProducts.map((product) => {
+                              const imgSrc = product.images?.[0] || product.image;
+                              const isSelected = selectedDesign === product.id;
+                              return (
+                                <button
+                                  key={product.id}
+                                  onClick={(e) => { e.stopPropagation(); setSelectedDesign(isSelected ? null : product.id); }}
+                                  style={{
+                                    position: "relative", borderRadius: "var(--radius-md)", overflow: "hidden",
+                                    border: `2px solid ${isSelected ? "var(--primary)" : "transparent"}`,
+                                    cursor: "pointer", background: "none", padding: 0, aspectRatio: "1",
+                                    transition: "border-color 0.2s",
+                                  }}
+                                  title={product.title}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={imgSrc}
+                                    alt={product.title}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/images/placeholder-rug.jpg"; }}
+                                  />
+                                  {isSelected && (
+                                    <div style={{ position: "absolute", inset: 0, background: "rgba(74,92,58,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                      <span style={{ color: "#fff", fontSize: "20px" }}>✓</span>
+                                    </div>
+                                  )}
+                                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.75), transparent)", padding: "18px 6px 5px 6px", fontSize: "9px", color: "#fff", fontWeight: 600, letterSpacing: "0.04em", lineHeight: 1.3, textAlign: "left" }}>
+                                    {product.title}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {selectedProduct && (
+                            <div style={{ marginTop: "10px", padding: "10px 14px", background: "rgba(74,92,58,0.06)", border: "1px solid var(--border-green)", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                              <div>
+                                <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--primary)", margin: 0 }}>{selectedProduct.title}</p>
+                                <p style={{ fontSize: "11px", color: "var(--foreground-muted)", margin: 0 }}>{selectedProduct.material} · {selectedProduct.category}</p>
+                              </div>
+                              <Link
+                                href={`/products/${selectedProduct.slug}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ fontSize: "11px", fontWeight: 700, color: "var(--primary)", textDecoration: "none", whiteSpace: "nowrap", padding: "5px 12px", border: "1.5px solid var(--primary)", borderRadius: "9999px" }}
+                              >
+                                View Product →
+                              </Link>
                             </div>
                           )}
-                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)", padding: "6px 6px 5px", fontSize: "9px", color: "#fff", fontWeight: 600, letterSpacing: "0.04em" }}>{d.name}</div>
-                        </button>
-                      ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </>
@@ -642,20 +726,29 @@ export default function PriceCalculator() {
               </div>
             )}
 
-            {/* Live Preview */}
-            {(selectedDesign || uploadedDesign) && (
+            {/* Live Preview — shows uploaded image or selected live product image */}
+            {(selectedProductImage || uploadedDesign) && (
               <div style={{ marginTop: "20px", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-light)" }}>
-                  <h4 style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>Design Preview</h4>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <h4 style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)", margin: 0 }}>Design Preview</h4>
+                  {selectedProduct && (
+                    <Link
+                      href={`/products/${selectedProduct.slug}`}
+                      style={{ fontSize: "11px", color: "var(--primary)", fontWeight: 700, textDecoration: "none" }}
+                    >
+                      View full product →
+                    </Link>
+                  )}
                 </div>
                 <div style={{ position: "relative", height: "200px" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={uploadedDesign || WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.image || ""}
-                    alt="Preview"
+                    src={uploadedDesign || selectedProductImage || ""}
+                    alt="Design preview"
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                   <div style={{ position: "absolute", bottom: "10px", left: "10px", background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: "10px", fontWeight: 600, padding: "3px 8px", borderRadius: "9999px", letterSpacing: "0.05em" }}>
-                    {uploadedDesign ? "YOUR DESIGN" : WEBSITE_DESIGNS.find((d) => d.id === selectedDesign)?.name}
+                    {uploadedDesign ? "YOUR DESIGN" : selectedProduct?.title ?? ""}
                   </div>
                 </div>
               </div>
