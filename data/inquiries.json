@@ -1,1 +1,44 @@
-[]
+[
+  {
+    "id": "1783590573764",
+    "status": "new",
+    "createdAt": "2026-07-09T09:49:33.765Z",
+    "type": "b2b",
+    "companyName": "gouf",
+    "businessType": "Other",
+    "contactName": "rechelle",
+    "email": "furqanalam707@gmail.com",
+    "phone": "000000000",
+    "country": "United States",
+    "website": "",
+    "inquiryType": "Sample Request",
+    "material": "New Zealand Wool",
+    "construction": "Hand Tufted",
+    "size": "3x6",
+    "quantity": "60",
+    "targetDelivery": "2026-07-31",
+    "budget": "1800",
+    "projectDetails": "hey",
+    "message": "hi",
+    "adminNotes": "okay I will do",
+    "updatedAt": "2026-07-09T09:50:04.694Z"
+  },
+  {
+    "id": "1783589107435",
+    "status": "replied",
+    "createdAt": "2026-07-09T09:25:07.438Z",
+    "type": "product",
+    "productId": "1783575645925",
+    "productTitle": "Hand Tufted Wool Rug | Modern Botanical Border Area Rug | Luxury Handmade Rust Brown Living Room Carpet | Custom Size Designer Rug (Copy)",
+    "selectedSize": "3 x 5 ft",
+    "sqft": 15,
+    "estimatedPrice": "$165",
+    "quantity": 1,
+    "name": "rachele",
+    "email": "furqanalam707@gmail.com",
+    "phone": "",
+    "country": "usa",
+    "message": "Hi I am Interested to make a custom size of this rug",
+    "updatedAt": "2026-07-09T09:25:45.321Z"
+  }
+]
