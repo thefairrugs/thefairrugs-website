@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useCart } from "../context/CartContext";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -20,6 +21,7 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { totalItems } = useCart();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -197,6 +199,30 @@ export default function Header() {
                 Get a Quote
               </button>
             </Link>
+
+            {/* Cart Icon */}
+            <Link href="/cart" style={{ textDecoration: "none", position: "relative", display: "flex", alignItems: "center" }}>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "11px", padding: "10px 14px", border: "1.5px solid var(--border)", display: "flex", alignItems: "center", gap: "6px", position: "relative" }}
+                title="Shopping Cart"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                {totalItems > 0 && (
+                  <span style={{
+                    position: "absolute", top: "-6px", right: "-6px",
+                    background: "var(--primary)", color: "#fff",
+                    borderRadius: "50%", width: "18px", height: "18px",
+                    fontSize: "10px", fontWeight: 800,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    lineHeight: 1,
+                  }}>{totalItems > 9 ? "9+" : totalItems}</span>
+                )}
+              </button>
+            </Link>
           </div>
 
           {/* Mobile Hamburger */}
@@ -299,6 +325,11 @@ export default function Header() {
               <Link href="/contact" style={{ textDecoration: "none" }}>
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>
                   Get a Quote
+                </button>
+              </Link>
+              <Link href="/cart" style={{ textDecoration: "none" }}>
+                <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", borderColor: "var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
+                  🛒 Cart {totalItems > 0 && `(${totalItems})`}
                 </button>
               </Link>
             </div>

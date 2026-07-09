@@ -124,13 +124,15 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, status, notes } = await req.json();
+  const body = await req.json();
+  const { id, status, notes, replies } = body;
   const inquiries = loadInquiries();
   const idx = inquiries.findIndex((i: { id: string }) => i.id === id);
   if (idx === -1) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (status) inquiries[idx].status = status;
   if (notes !== undefined) inquiries[idx].adminNotes = notes;
+  if (replies !== undefined) inquiries[idx].replies = replies;
   inquiries[idx].updatedAt = new Date().toISOString();
   saveInquiries(inquiries);
   return NextResponse.json({ success: true });

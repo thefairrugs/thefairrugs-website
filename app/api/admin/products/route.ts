@@ -118,6 +118,16 @@ export async function POST(req: NextRequest) {
       oldPrice: 0,
       priceDisplay: "From $—",
       oldPriceDisplay: "",
+      // Smart pricing — per-product price adjustment (± per sqft on top of category base)
+      priceAdjustment: Number(body.priceAdjustment) || 0,
+      // Product attributes (Etsy-style)
+      primaryColor: body.primaryColor || "",
+      secondaryColor: body.secondaryColor || "",
+      homeStyle: body.homeStyle || "",
+      occasion: body.occasion || "",
+      room: body.room || "",
+      rugTypeTags: body.rugTypeTags || "",
+      pileHeight: body.pileHeight || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

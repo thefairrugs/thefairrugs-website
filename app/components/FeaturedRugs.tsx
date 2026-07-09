@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { constructionToRugType, computePrice } from "../lib/pricing";
+import { constructionToRugType, computePrice, type PricingItem } from "../lib/pricing";
 
 // 5×8 ft reference display size (40 sq.ft)
 const DISPLAY_SQFT = 40;
@@ -28,6 +28,7 @@ interface Product {
   badge?: string | null;
   reviews?: number;
   active?: boolean;
+  priceAdjustment?: number;
 }
 
 const badgeColors: Record<string, { bg: string; color: string }> = {
@@ -43,6 +44,7 @@ export default function FeaturedRugs() {
   const [products, setProducts]   = useState<Product[]>([]);
   const [discount, setDiscount]   = useState<DiscountConfig | null>(null);
   const [loading, setLoading]     = useState(true);
+  const [pricingData, setPricingData] = useState<PricingItem[]>([]);
 
   // Fetch live products from the admin database — single source of truth
   useEffect(() => {
@@ -63,6 +65,14 @@ export default function FeaturedRugs() {
     fetch("/api/admin/discount")
       .then((r) => r.json())
       .then((d) => { if (d.active) setDiscount(d); })
+      .catch(() => {});
+  }, []);
+
+  // Fetch live pricing config
+  useEffect(() => {
+    fetch("/api/admin/pricing")
+      .then((r) => r.json())
+      .then((data: PricingItem[]) => { if (Array.isArray(data)) setPricingData(data); })
       .catch(() => {});
   }, []);
 
@@ -133,6 +143,8 @@ export default function FeaturedRugs() {
                 rugTypeId,
                 1.0,
                 discount ? { enabled: true, type: discount.type, value: discount.value } : undefined,
+                pricingData.length ? pricingData : undefined,
+                rug.priceAdjustment || 0
               );
               return (
                 <Link key={rug.id} href={`/products/${rug.slug}`} style={{ textDecoration: "none" }}>

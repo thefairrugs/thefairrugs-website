@@ -3,7 +3,7 @@
     "id": "1",
     "slug": "vintage-oushak-rug",
     "title": "Vintage Oushak Rug",
-    "subtitle": "Hand Knotted · Pure Wool",
+    "subtitle": "Hand Knotted \u00b7 Pure Wool",
     "category": "Hand Knotted",
     "rugType": "hand-knotted",
     "material": "100% New Zealand Wool",
@@ -13,17 +13,21 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug1.png",
-    "images": ["/images/rug1.png", "/images/rug2.png", "/images/rug3.png"],
+    "images": [
+      "/images/rug1.png",
+      "/images/rug2.png",
+      "/images/rug3.png"
+    ],
     "video": "",
     "badge": "Bestseller",
     "reviews": 245,
     "rating": 5,
     "description": "A timeless Oushak-inspired rug hand knotted by master artisans in Jaipur. Featuring muted vintage tones and a soft, plush pile that brings warmth and elegance to any space.",
-    "longDescription": "The Vintage Oushak Rug is a celebration of one of the world's most beloved rug traditions, reimagined for the modern luxury home. Each rug is individually hand knotted by skilled artisans who have honed their craft over generations. The rich, muted palette — soft creams, warm beiges, and dusty blues — creates a sense of timeless refinement. Made from 100% New Zealand wool for extraordinary softness and durability.",
+    "longDescription": "The Vintage Oushak Rug is a celebration of one of the world's most beloved rug traditions, reimagined for the modern luxury home. Each rug is individually hand knotted by skilled artisans who have honed their craft over generations. The rich, muted palette \u2014 soft creams, warm beiges, and dusty blues \u2014 creates a sense of timeless refinement. Made from 100% New Zealand wool for extraordinary softness and durability.",
     "features": [
       "Hand knotted by master artisans",
       "100% New Zealand wool pile",
@@ -33,20 +37,55 @@
       "Aged, muted tonal palette",
       "Available in custom sizes"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft", "10×14 ft"],
-    "colors": ["Ivory", "Cream", "Sage", "Dusty Blue", "Soft Terracotta"],
-    "tags": ["Oushak", "Vintage", "Hand Knotted", "Wool", "Living Room"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft",
+      "10\u00d714 ft"
+    ],
+    "colors": [
+      "Ivory",
+      "Cream",
+      "Sage",
+      "Dusty Blue",
+      "Soft Terracotta"
+    ],
+    "tags": [
+      "Oushak",
+      "Vintage",
+      "Hand Knotted",
+      "Wool",
+      "Living Room"
+    ],
     "inStock": true,
-    "leadTime": "3–5 weeks",
+    "leadTime": "3\u20135 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Ivory",
+    "secondaryColor": "Sage",
+    "homeStyle": "Traditional",
+    "occasion": "Everyday",
+    "room": "Living Room",
+    "rugTypeTags": "Oushak, Vintage, Persian",
+    "pileHeight": "Medium Pile",
+    "keywords": [
+      "Oushak",
+      "Vintage",
+      "Hand Knotted",
+      "Wool",
+      "Living Room"
+    ]
   },
   {
     "id": "2",
     "slug": "moroccan-wool-rug",
     "title": "Moroccan Wool Rug",
-    "subtitle": "Hand Tufted · Premium Wool",
+    "subtitle": "Hand Tufted \u00b7 Premium Wool",
     "category": "Hand Tufted",
     "rugType": "hand-tufted",
     "material": "Premium Wool Blend",
@@ -56,11 +95,15 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug2.png",
-    "images": ["/images/rug2.png", "/images/rug1.png", "/images/rug4.jpg"],
+    "images": [
+      "/images/rug2.png",
+      "/images/rug1.png",
+      "/images/rug4.jpg"
+    ],
     "video": "",
     "badge": "New",
     "reviews": 198,
@@ -69,27 +112,60 @@
     "longDescription": "The Moroccan Wool Rug draws from centuries of North African weaving tradition. Our artisans meticulously recreate the iconic diamond and geometric motifs using premium wool tufted by hand. The high pile creates an incredibly luxurious underfoot feel, while the bold black-and-ivory contrast makes a striking visual statement in any contemporary or bohemian interior.",
     "features": [
       "Hand tufted by skilled artisans",
-      "Premium wool — extra plush high pile",
+      "Premium wool \u2014 extra plush high pile",
       "Moroccan Beni Ourain-inspired design",
       "Bold geometric diamond pattern",
       "Non-slip canvas backing",
       "Machine washable (spot clean recommended)",
       "Custom colors available"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft"],
-    "colors": ["Black & Ivory", "Charcoal & Cream", "Navy & White", "Sage & Ivory"],
-    "tags": ["Moroccan", "Geometric", "Hand Tufted", "Wool", "Bedroom"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft"
+    ],
+    "colors": [
+      "Black & Ivory",
+      "Charcoal & Cream",
+      "Navy & White",
+      "Sage & Ivory"
+    ],
+    "tags": [
+      "Moroccan",
+      "Geometric",
+      "Hand Tufted",
+      "Wool",
+      "Bedroom"
+    ],
     "inStock": true,
-    "leadTime": "3–4 weeks",
+    "leadTime": "3\u20134 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Black",
+    "secondaryColor": "Ivory",
+    "homeStyle": "Bohemian",
+    "occasion": "Everyday",
+    "room": "Bedroom",
+    "rugTypeTags": "Moroccan, Geometric, Beni Ourain",
+    "pileHeight": "High Pile",
+    "keywords": [
+      "Moroccan",
+      "Geometric",
+      "Hand Tufted",
+      "Wool",
+      "Bedroom"
+    ]
   },
   {
     "id": "3",
     "slug": "hand-knotted-wool-rug",
     "title": "Hand Knotted Wool Rug",
-    "subtitle": "Hand Knotted · Pure Wool",
+    "subtitle": "Hand Knotted \u00b7 Pure Wool",
     "category": "Hand Knotted",
     "rugType": "hand-knotted",
     "material": "100% Pure Wool",
@@ -99,16 +175,20 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug3.png",
-    "images": ["/images/rug3.png", "/images/rug1.png", "/images/rug7.png"],
+    "images": [
+      "/images/rug3.png",
+      "/images/rug1.png",
+      "/images/rug7.png"
+    ],
     "video": "",
     "badge": "Heritage",
     "reviews": 312,
     "rating": 5,
-    "description": "The pinnacle of rug craftsmanship. Hand knotted over weeks by master weavers, this traditional wool rug is built to last generations — a true heirloom piece.",
+    "description": "The pinnacle of rug craftsmanship. Hand knotted over weeks by master weavers, this traditional wool rug is built to last generations \u2014 a true heirloom piece.",
     "longDescription": "This Hand Knotted Wool Rug represents the highest expression of the weaver's art. Each knot is tied individually by hand, creating a dense, durable pile that only improves with age. The intricate pattern is derived from classical Persian and Central Asian weaving traditions, featuring botanical motifs and medallion designs rendered in a sophisticated, muted palette. With up to 200 knots per square inch, this rug is the gold standard of handmade floor coverings.",
     "features": [
       "200+ knots per square inch",
@@ -119,20 +199,54 @@
       "Improves character with age",
       "Museum-quality craftsmanship"
     ],
-    "standardSizes": ["4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft", "10×14 ft", "12×18 ft"],
-    "colors": ["Ivory & Navy", "Red & Gold", "Forest & Cream", "Charcoal & Sage"],
-    "tags": ["Persian", "Heritage", "Hand Knotted", "Wool", "Heirloom"],
+    "standardSizes": [
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft",
+      "10\u00d714 ft",
+      "12\u00d718 ft"
+    ],
+    "colors": [
+      "Ivory & Navy",
+      "Red & Gold",
+      "Forest & Cream",
+      "Charcoal & Sage"
+    ],
+    "tags": [
+      "Persian",
+      "Heritage",
+      "Hand Knotted",
+      "Wool",
+      "Heirloom"
+    ],
     "inStock": true,
-    "leadTime": "4–6 weeks",
+    "leadTime": "4\u20136 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Navy",
+    "secondaryColor": "Ivory",
+    "homeStyle": "Traditional",
+    "occasion": "Special Occasion",
+    "room": "Living Room",
+    "rugTypeTags": "Persian, Heritage, Heirloom",
+    "pileHeight": "Low Pile",
+    "keywords": [
+      "Persian",
+      "Heritage",
+      "Hand Knotted",
+      "Wool",
+      "Heirloom"
+    ]
   },
   {
     "id": "4",
     "slug": "geometric-area-rug",
     "title": "Geometric Area Rug",
-    "subtitle": "Hand Tufted · Wool Blend",
+    "subtitle": "Hand Tufted \u00b7 Wool Blend",
     "category": "Hand Tufted",
     "rugType": "hand-tufted",
     "material": "Wool-Silk Blend",
@@ -142,11 +256,15 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug4.jpg",
-    "images": ["/images/rug4.jpg", "/images/rug2.png", "/images/rug5.jpg"],
+    "images": [
+      "/images/rug4.jpg",
+      "/images/rug2.png",
+      "/images/rug5.jpg"
+    ],
     "video": "",
     "badge": null,
     "reviews": 156,
@@ -162,20 +280,53 @@
       "Rich, saturated color palette",
       "Custom geometric patterns available"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft"],
-    "colors": ["Charcoal & Gold", "Navy & Cream", "Forest & Ivory", "Rust & Sand"],
-    "tags": ["Geometric", "Modern", "Hand Tufted", "Contemporary", "Living Room"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft"
+    ],
+    "colors": [
+      "Charcoal & Gold",
+      "Navy & Cream",
+      "Forest & Ivory",
+      "Rust & Sand"
+    ],
+    "tags": [
+      "Geometric",
+      "Modern",
+      "Hand Tufted",
+      "Contemporary",
+      "Living Room"
+    ],
     "inStock": true,
-    "leadTime": "3–4 weeks",
+    "leadTime": "3\u20134 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Charcoal",
+    "secondaryColor": "Gold",
+    "homeStyle": "Modern / Contemporary",
+    "occasion": "Everyday",
+    "room": "Living Room",
+    "rugTypeTags": "Geometric, Modern, Contemporary",
+    "pileHeight": "Medium Pile",
+    "keywords": [
+      "Geometric",
+      "Modern",
+      "Hand Tufted",
+      "Contemporary",
+      "Living Room"
+    ]
   },
   {
     "id": "5",
     "slug": "modern-abstract-rug",
     "title": "Modern Abstract Rug",
-    "subtitle": "Hand Tufted · New Zealand Wool",
+    "subtitle": "Hand Tufted \u00b7 New Zealand Wool",
     "category": "Hand Tufted",
     "rugType": "hand-tufted",
     "material": "100% New Zealand Wool",
@@ -185,11 +336,15 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug5.jpg",
-    "images": ["/images/rug5.jpg", "/images/rug4.jpg", "/images/rug6.png"],
+    "images": [
+      "/images/rug5.jpg",
+      "/images/rug4.jpg",
+      "/images/rug6.png"
+    ],
     "video": "",
     "badge": "Featured",
     "reviews": 287,
@@ -199,26 +354,58 @@
     "features": [
       "Extra-high pile (18mm) for maximum luxury",
       "100% New Zealand wool",
-      "Abstract artistic design — each slightly unique",
+      "Abstract artistic design \u2014 each slightly unique",
       "Rich depth of color",
       "Durable canvas backing",
       "Ideal for bedroom or living room",
       "Available in custom sizes and colors"
     ],
-    "standardSizes": ["4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft"],
-    "colors": ["Sage & Ivory", "Forest & Cream", "Walnut & Beige", "Charcoal & Gold"],
-    "tags": ["Abstract", "Modern", "Hand Tufted", "Wool", "Luxury"],
+    "standardSizes": [
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft"
+    ],
+    "colors": [
+      "Sage & Ivory",
+      "Forest & Cream",
+      "Walnut & Beige",
+      "Charcoal & Gold"
+    ],
+    "tags": [
+      "Abstract",
+      "Modern",
+      "Hand Tufted",
+      "Wool",
+      "Luxury"
+    ],
     "inStock": true,
-    "leadTime": "3–5 weeks",
+    "leadTime": "3\u20135 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Sage",
+    "secondaryColor": "Ivory",
+    "homeStyle": "Scandinavian / Nordic",
+    "occasion": "Everyday",
+    "room": "Bedroom",
+    "rugTypeTags": "Abstract, Modern, Luxury",
+    "pileHeight": "High Pile",
+    "keywords": [
+      "Abstract",
+      "Modern",
+      "Hand Tufted",
+      "Wool",
+      "Luxury"
+    ]
   },
   {
     "id": "6",
     "slug": "scandinavian-wool-rug",
     "title": "Scandinavian Flat Weave",
-    "subtitle": "Durrie · Flat Weave",
+    "subtitle": "Durrie \u00b7 Flat Weave",
     "category": "Durrie",
     "rugType": "durrie",
     "material": "100% Cotton Wool Blend",
@@ -228,40 +415,77 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug6.png",
-    "images": ["/images/rug6.png", "/images/rug7.png", "/images/rug8.jpeg"],
+    "images": [
+      "/images/rug6.png",
+      "/images/rug7.png",
+      "/images/rug8.jpeg"
+    ],
     "video": "",
     "badge": null,
     "reviews": 175,
     "rating": 5,
     "description": "Lightweight, reversible and beautifully minimal. A Scandinavian-inspired flat weave Durrie rug, handmade using traditional Indian flat weaving techniques with a contemporary Nordic aesthetic.",
-    "longDescription": "The Scandinavian Flat Weave represents the perfect marriage of Indian artisan tradition with Nordic design sensibility. The Durrie (flat weave) technique produces a thin, reversible rug with exceptional durability — ideal for high-traffic areas, dining rooms, and layered rugs. The clean geometric pattern and restrained palette reflect Scandinavian design principles: form, function, and understated beauty.",
+    "longDescription": "The Scandinavian Flat Weave represents the perfect marriage of Indian artisan tradition with Nordic design sensibility. The Durrie (flat weave) technique produces a thin, reversible rug with exceptional durability \u2014 ideal for high-traffic areas, dining rooms, and layered rugs. The clean geometric pattern and restrained palette reflect Scandinavian design principles: form, function, and understated beauty.",
     "features": [
       "Traditional Indian Durrie flat weave",
-      "Fully reversible — double the lifespan",
+      "Fully reversible \u2014 double the lifespan",
       "Cotton-wool blend for durability",
-      "No pile — easy to clean",
+      "No pile \u2014 easy to clean",
       "Lightweight and easy to move",
       "Ideal for high-traffic areas",
       "Sustainable natural fiber construction"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft"],
-    "colors": ["Ivory & Charcoal", "Cream & Sage", "White & Natural", "Beige & Forest"],
-    "tags": ["Durrie", "Flat Weave", "Scandinavian", "Minimal", "Reversible"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft"
+    ],
+    "colors": [
+      "Ivory & Charcoal",
+      "Cream & Sage",
+      "White & Natural",
+      "Beige & Forest"
+    ],
+    "tags": [
+      "Durrie",
+      "Flat Weave",
+      "Scandinavian",
+      "Minimal",
+      "Reversible"
+    ],
     "inStock": true,
-    "leadTime": "2–3 weeks",
+    "leadTime": "2\u20133 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Ivory",
+    "secondaryColor": "Charcoal",
+    "homeStyle": "Scandinavian / Nordic",
+    "occasion": "Everyday",
+    "room": "Dining Room",
+    "rugTypeTags": "Durrie, Flat Weave, Scandinavian, Reversible",
+    "pileHeight": "Flat Weave",
+    "keywords": [
+      "Durrie",
+      "Flat Weave",
+      "Scandinavian",
+      "Minimal",
+      "Reversible"
+    ]
   },
   {
     "id": "7",
     "slug": "boho-handmade-rug",
     "title": "Boho Handmade Rug",
-    "subtitle": "Hand Tufted · Recycled Fiber",
+    "subtitle": "Hand Tufted \u00b7 Recycled Fiber",
     "category": "Hand Tufted",
     "rugType": "hand-tufted",
     "material": "Recycled Cotton & Wool",
@@ -271,11 +495,15 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug7.png",
-    "images": ["/images/rug7.png", "/images/rug8.jpeg", "/images/rug5.jpg"],
+    "images": [
+      "/images/rug7.png",
+      "/images/rug8.jpeg",
+      "/images/rug5.jpg"
+    ],
     "video": "",
     "badge": "Eco",
     "reviews": 221,
@@ -284,27 +512,60 @@
     "longDescription": "The Boho Handmade Rug embodies conscious luxury. Crafted from recycled cotton and repurposed wool fibers, this rug transforms textile waste into a beautiful, tactile floor covering. The irregular, organic patterns are reminiscent of global nomadic weaving traditions. Each rug is inherently unique, with natural variations in color and texture that add to its artisanal character.",
     "features": [
       "Made from recycled cotton and wool fibers",
-      "Unique organic pattern — each piece one-of-a-kind",
+      "Unique organic pattern \u2014 each piece one-of-a-kind",
       "Boho/folk-inspired aesthetic",
       "Medium pile for comfort",
       "Available in round and irregular shapes",
       "Sustainable and eco-conscious production",
       "Natural, undyed fibers with earth tones"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "Round 4ft", "Round 5ft", "Round 6ft"],
-    "colors": ["Natural Earth", "Warm Terracotta", "Sage & Cream", "Indigo & Ivory"],
-    "tags": ["Boho", "Eco", "Round", "Irregular Shape", "Sustainable"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "Round 4ft",
+      "Round 5ft",
+      "Round 6ft"
+    ],
+    "colors": [
+      "Natural Earth",
+      "Warm Terracotta",
+      "Sage & Cream",
+      "Indigo & Ivory"
+    ],
+    "tags": [
+      "Boho",
+      "Eco",
+      "Round",
+      "Irregular Shape",
+      "Sustainable"
+    ],
     "inStock": true,
-    "leadTime": "3–4 weeks",
+    "leadTime": "3\u20134 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Natural Earth",
+    "secondaryColor": "Terracotta",
+    "homeStyle": "Bohemian",
+    "occasion": "Everyday",
+    "room": "Living Room",
+    "rugTypeTags": "Boho, Eco, Sustainable, Organic",
+    "pileHeight": "Medium Pile",
+    "keywords": [
+      "Boho",
+      "Eco",
+      "Round",
+      "Irregular Shape",
+      "Sustainable"
+    ]
   },
   {
     "id": "8",
     "slug": "jute-natural-rug",
     "title": "Natural Jute Rug",
-    "subtitle": "Jute · Natural Fiber",
+    "subtitle": "Jute \u00b7 Natural Fiber",
     "category": "Jute",
     "rugType": "jute",
     "material": "100% Natural Jute",
@@ -314,17 +575,21 @@
     "origin": "Handmade in Jaipur, India",
     "price": 0,
     "oldPrice": 0,
-    "priceDisplay": "From $—",
+    "priceDisplay": "From $\u2014",
     "oldPriceDisplay": "",
     "priceNote": "Price calculated by sq.ft. See size selector.",
     "image": "/images/rug8.jpeg",
-    "images": ["/images/rug8.jpeg", "/images/rug6.png", "/images/rug7.png"],
+    "images": [
+      "/images/rug8.jpeg",
+      "/images/rug6.png",
+      "/images/rug7.png"
+    ],
     "video": "",
     "badge": "Exclusive",
     "reviews": 268,
     "rating": 5,
     "description": "Pure, raw beauty. This natural jute rug is hand woven from premium golden jute fibers, creating a rich textural surface that brings the outdoors in with understated luxury.",
-    "longDescription": "The Natural Jute Rug is a statement of sustainable luxury. Woven entirely from premium golden jute — one of the world's most renewable and biodegradable natural fibers — this rug brings rich, warm texture to any space. The herringbone weave pattern creates visual interest while maintaining the simple, earthy aesthetic that makes natural fiber rugs endlessly versatile.",
+    "longDescription": "The Natural Jute Rug is a statement of sustainable luxury. Woven entirely from premium golden jute \u2014 one of the world's most renewable and biodegradable natural fibers \u2014 this rug brings rich, warm texture to any space. The herringbone weave pattern creates visual interest while maintaining the simple, earthy aesthetic that makes natural fiber rugs endlessly versatile.",
     "features": [
       "100% natural golden jute",
       "Hand woven herringbone pattern",
@@ -334,13 +599,46 @@
       "Ideal for layering with other rugs",
       "Natural variations add unique character"
     ],
-    "standardSizes": ["3×5 ft", "4×6 ft", "5×8 ft", "6×9 ft", "8×10 ft", "9×12 ft", "10×14 ft"],
-    "colors": ["Natural Golden", "Bleached White", "Natural & Black Border"],
-    "tags": ["Jute", "Natural Fiber", "Eco", "Sustainable", "Coastal"],
+    "standardSizes": [
+      "3\u00d75 ft",
+      "4\u00d76 ft",
+      "5\u00d78 ft",
+      "6\u00d79 ft",
+      "8\u00d710 ft",
+      "9\u00d712 ft",
+      "10\u00d714 ft"
+    ],
+    "colors": [
+      "Natural Golden",
+      "Bleached White",
+      "Natural & Black Border"
+    ],
+    "tags": [
+      "Jute",
+      "Natural Fiber",
+      "Eco",
+      "Sustainable",
+      "Coastal"
+    ],
     "inStock": true,
-    "leadTime": "2–3 weeks",
+    "leadTime": "2\u20133 weeks",
     "active": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "priceAdjustment": 0,
+    "primaryColor": "Natural Golden",
+    "secondaryColor": "Warm Beige",
+    "homeStyle": "Coastal / Nautical",
+    "occasion": "Everyday",
+    "room": "Living Room",
+    "rugTypeTags": "Jute, Natural Fiber, Eco, Coastal",
+    "pileHeight": "Flat Weave",
+    "keywords": [
+      "Jute",
+      "Natural Fiber",
+      "Eco",
+      "Sustainable",
+      "Coastal"
+    ]
   }
 ]

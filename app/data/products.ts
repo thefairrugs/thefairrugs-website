@@ -32,6 +32,17 @@ export interface Product {
   leadTime?: string;
   processingTime?: string;
   deliveryTime?: string;
+  // Smart pricing — per-product price adjustment (± per sqft on top of category base)
+  priceAdjustment?: number;
+  // Product attributes (Etsy-style)
+  primaryColor?: string;
+  secondaryColor?: string;
+  homeStyle?: string;
+  occasion?: string;
+  room?: string;
+  rugTypeTags?: string;
+  pileHeight?: string;
+  active?: boolean;
 }
 
 export const products: Product[] = [
