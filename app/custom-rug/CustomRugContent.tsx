@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 const processSteps = [
   { step: "01", title: "Share Your Vision", desc: "Tell us about your space, your style, and your requirements. Share any reference images, colour palettes, or design ideas." },
@@ -37,6 +37,7 @@ const FORM_INIT = {
 export default function CustomRugContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState(FORM_INIT);
@@ -47,9 +48,9 @@ export default function CustomRugContent() {
   const [submitError, setSubmitError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch live products
+  // Fetch live products — cache: no-store so additions/deletions from admin panel are always fresh
   useEffect(() => {
-    fetch("/api/admin/products")
+    fetch("/api/admin/products", { cache: "no-store" })
       .then((r) => r.json())
       .then((prods: Product[]) => {
         if (Array.isArray(prods)) {
@@ -59,6 +60,9 @@ export default function CustomRugContent() {
       .catch(() => {})
       .finally(() => setProductsLoading(false));
   }, []);
+
+  // Shuffle once so repeated visits show a fresh order
+  const shuffledProducts = useMemo(() => [...products].sort(() => 0), [products]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -208,42 +212,62 @@ export default function CustomRugContent() {
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "24px" }}>
-              {products.map((product) => (
-                <Link key={product.id} href={`/products/${product.slug}`} style={{ textDecoration: "none" }}>
-                  <div
-                    style={{ background: "var(--surface)", borderRadius: "var(--radius-lg)", overflow: "hidden", border: "1px solid var(--border-light)", boxShadow: "var(--shadow-sm)", cursor: "pointer", transition: "all 0.35s ease" }}
-                    onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-6px)"; el.style.boxShadow = "var(--shadow-xl)"; el.style.borderColor = "var(--border-green)"; const img = el.querySelector("img") as HTMLImageElement; if (img) img.style.transform = "scale(1.05)"; }}
-                    onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(0)"; el.style.boxShadow = "var(--shadow-sm)"; el.style.borderColor = "var(--border-light)"; const img = el.querySelector("img") as HTMLImageElement; if (img) img.style.transform = "scale(1)"; }}
-                  >
-                    <div style={{ position: "relative", height: "260px", overflow: "hidden" }}>
-                      <Image
-                        src={product.images?.[0] || product.image}
-                        alt={product.title}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                        style={{ objectFit: "cover", transition: "transform 0.6s ease" }}
-                      />
-                      {product.badge && (
-                        <div style={{ position: "absolute", top: "12px", left: "12px", padding: "3px 10px", borderRadius: "9999px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em", background: "var(--gold)", color: "var(--foreground)" }}>
-                          {product.badge}
+              {shuffledProducts.map((product) => {
+                const isHovered = hoveredCard === product.id;
+                const imgSrc = (product.images && product.images.length > 0) ? product.images[0] : product.image;
+                return (
+                  <Link key={product.id} href={`/products/${product.slug}`} style={{ textDecoration: "none", display: "block" }}>
+                    <div
+                      onMouseEnter={() => setHoveredCard(product.id)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                      style={{
+                        background: "var(--surface)",
+                        borderRadius: "var(--radius-lg)",
+                        overflow: "hidden",
+                        border: `1px solid ${isHovered ? "var(--border-green)" : "var(--border-light)"}`,
+                        boxShadow: isHovered ? "var(--shadow-xl)" : "var(--shadow-sm)",
+                        cursor: "pointer",
+                        transform: isHovered ? "translateY(-6px)" : "translateY(0)",
+                        transition: "all 0.35s ease",
+                      }}
+                    >
+                      <div style={{ position: "relative", height: "260px", overflow: "hidden" }}>
+                        <Image
+                          src={imgSrc}
+                          alt={product.title}
+                          fill
+                          sizes="(max-width: 768px) 50vw, 25vw"
+                          style={{ objectFit: "cover", transform: isHovered ? "scale(1.05)" : "scale(1)", transition: "transform 0.6s ease" }}
+                        />
+                        {product.badge && (
+                          <div style={{ position: "absolute", top: "12px", left: "12px", padding: "3px 10px", borderRadius: "9999px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em", background: "var(--gold)", color: "var(--foreground)" }}>
+                            {product.badge}
+                          </div>
+                        )}
+                        {/* Hover overlay — rendered via React state, not CSS class */}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)",
+                          opacity: isHovered ? 1 : 0,
+                          transition: "opacity 0.35s ease",
+                          display: "flex", alignItems: "flex-end", padding: "16px",
+                        }}>
+                          <span style={{ color: "#fff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>View &amp; Customise →</span>
                         </div>
-                      )}
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)", opacity: 0, transition: "opacity 0.3s", display: "flex", alignItems: "flex-end", padding: "16px" }} className="hover-overlay">
-                        <span style={{ color: "#fff", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em" }}>View & Customise →</span>
+                      </div>
+                      <div style={{ padding: "18px 20px" }}>
+                        <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
+                          {product.subtitle || product.category}
+                        </p>
+                        <h3 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "20px", fontWeight: 500, color: "var(--foreground)", marginBottom: "6px", lineHeight: 1.2 }}>
+                          {product.title}
+                        </h3>
+                        <p style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>{product.material}</p>
                       </div>
                     </div>
-                    <div style={{ padding: "18px 20px" }}>
-                      <p style={{ fontSize: "10px", color: "var(--primary)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px" }}>
-                        {product.subtitle || product.category}
-                      </p>
-                      <h3 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "20px", fontWeight: 500, color: "var(--foreground)", marginBottom: "6px", lineHeight: 1.2 }}>
-                        {product.title}
-                      </h3>
-                      <p style={{ fontSize: "12px", color: "var(--foreground-muted)" }}>{product.material}</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
 
