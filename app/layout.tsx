@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "./context/CartContext";
+import AnalyticsTracker from "./components/AnalyticsTracker";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -83,26 +84,90 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://thefairrugs.com"),
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Store",
-  name: "The Fair Rugs",
-  description:
-    "Luxury handmade rugs and custom carpets crafted by master artisans in India.",
-  url: "https://thefairrugs.com",
-  logo: "https://thefairrugs.com/images/logo.png",
-  priceRange: "$$$",
-  servesCuisine: undefined,
-  areaServed: ["US", "CA", "GB", "AU", "DE", "FR"],
-  address: {
-    "@type": "PostalAddress",
-    addressCountry: "IN",
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://thefairrugs.com/#organization",
+    name: "The Fair Rugs",
+    legalName: "The Fair Rugs",
+    description:
+      "Luxury handmade rugs and custom carpets crafted by master artisans in Jaipur, India. Hand knotted, hand tufted, and bespoke custom rugs shipped worldwide.",
+    url: "https://thefairrugs.com",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://thefairrugs.com/images/logo.png",
+      width: 200,
+      height: 60,
+    },
+    image: "https://thefairrugs.com/images/rug1.png",
+    email: "thefairrugs@gmail.com",
+    telephone: "+918416919470",
+    foundingDate: "2010",
+    numberOfEmployees: { "@type": "QuantitativeValue", value: 200 },
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Jaipur",
+      addressRegion: "Rajasthan",
+      addressCountry: "IN",
+      postalCode: "302001",
+    },
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        telephone: "+918416919470",
+        contactType: "customer service",
+        availableLanguage: ["English", "Hindi"],
+        contactOption: "TollFree",
+      },
+      {
+        "@type": "ContactPoint",
+        email: "thefairrugs@gmail.com",
+        contactType: "sales",
+        availableLanguage: "English",
+      },
+    ],
+    areaServed: [
+      { "@type": "Country", name: "United States" },
+      { "@type": "Country", name: "United Kingdom" },
+      { "@type": "Country", name: "Canada" },
+      { "@type": "Country", name: "Australia" },
+      { "@type": "Country", name: "Germany" },
+      { "@type": "Country", name: "France" },
+      { "@type": "Country", name: "UAE" },
+      { "@type": "Country", name: "Singapore" },
+    ],
+    sameAs: [
+      "https://www.instagram.com/thefairrugs",
+      "https://www.pinterest.com/thefairrugs",
+      "https://www.facebook.com/thefairrugs",
+    ],
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "Handmade Luxury Rugs",
+      itemListElement: [
+        { "@type": "Offer", itemOffered: { "@type": "Product", name: "Hand Knotted Rugs" } },
+        { "@type": "Offer", itemOffered: { "@type": "Product", name: "Hand Tufted Rugs" } },
+        { "@type": "Offer", itemOffered: { "@type": "Product", name: "Custom Rugs" } },
+        { "@type": "Offer", itemOffered: { "@type": "Product", name: "Jute Rugs" } },
+      ],
+    },
   },
-  sameAs: [
-    "https://www.instagram.com/thefairrugs",
-    "https://www.pinterest.com/thefairrugs",
-  ],
-};
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": "https://thefairrugs.com/#website",
+    url: "https://thefairrugs.com",
+    name: "The Fair Rugs",
+    description: "Luxury handmade rugs crafted by master artisans in Jaipur, India.",
+    publisher: { "@id": "https://thefairrugs.com/#organization" },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: { "@type": "EntryPoint", urlTemplate: "https://thefairrugs.com/shop?search={search_term_string}" },
+      "query-input": "required name=search_term_string",
+    },
+  },
+];
 
 export default function RootLayout({
   children,
@@ -127,6 +192,7 @@ export default function RootLayout({
         style={{ fontFamily: "var(--font-jost), system-ui, sans-serif" }}
       >
         <CartProvider>
+          <AnalyticsTracker />
           {children}
         </CartProvider>
         {/* WhatsApp Float Button */}

@@ -1,9 +1,16 @@
-"use client";
+import type { Metadata } from "next";
+import FAQClient from "./FAQClient";
 
-import { useState } from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
-import Link from "next/link";
+export const metadata: Metadata = {
+  title: "FAQ — Frequently Asked Questions | The Fair Rugs",
+  description:
+    "Find answers to common questions about ordering custom handmade rugs, materials, shipping worldwide, care and maintenance. The Fair Rugs experts are here to help.",
+  openGraph: {
+    title: "FAQ — The Fair Rugs",
+    description: "Answers to your questions about handmade rugs, custom orders, shipping & care.",
+    type: "website",
+  },
+};
 
 const faqs = [
   {
@@ -105,344 +112,45 @@ const faqs = [
   },
 ];
 
-function AccordionItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
+// Build flat FAQ list for JSON-LD schema
+const allQuestions = faqs.flatMap((section) =>
+  section.questions.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  }))
+);
 
-  return (
-    <div
-      style={{
-        borderBottom: "1px solid var(--border-light)",
-        overflow: "hidden",
-      }}
-    >
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          width: "100%",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: "24px 0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: "24px",
-          textAlign: "left",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "var(--foreground)",
-            lineHeight: 1.4,
-            flex: 1,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {q}
-        </span>
-        <span
-          style={{
-            flexShrink: 0,
-            width: "28px",
-            height: "28px",
-            borderRadius: "50%",
-            border: "1.5px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "16px",
-            color: open ? "#fff" : "var(--primary)",
-            background: open ? "var(--primary)" : "transparent",
-            borderColor: open ? "var(--primary)" : "var(--border)",
-            transition: "all 0.2s ease",
-            marginTop: "2px",
-          }}
-        >
-          {open ? "−" : "+"}
-        </span>
-      </button>
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: allQuestions,
+};
 
-      <div
-        style={{
-          maxHeight: open ? "400px" : "0",
-          overflow: "hidden",
-          transition: "max-height 0.35s cubic-bezier(0.4,0,0.2,1)",
-        }}
-      >
-        <p
-          style={{
-            fontSize: "15px",
-            lineHeight: 1.8,
-            color: "var(--foreground-muted)",
-            fontWeight: 300,
-            paddingBottom: "24px",
-          }}
-        >
-          {a}
-        </p>
-      </div>
-    </div>
-  );
-}
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://thefairrugs.com" },
+    { "@type": "ListItem", position: 2, name: "FAQ", item: "https://thefairrugs.com/faq" },
+  ],
+};
 
 export default function FAQPage() {
-  const [activeCategory, setActiveCategory] = useState(faqs[0].category);
-
   return (
     <>
-      <Header />
-      <main>
-        {/* Hero */}
-        <section
-          style={{
-            background: "var(--foreground)",
-            padding: "100px 0",
-            textAlign: "center",
-          }}
-        >
-          <div className="container">
-            <p
-              style={{
-                fontSize: "11px",
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "var(--gold)",
-                fontWeight: 600,
-                marginBottom: "20px",
-              }}
-            >
-              ✦ &nbsp; Questions Answered
-            </p>
-            <h1
-              style={{
-                fontFamily: "var(--font-cormorant), Georgia, serif",
-                fontSize: "clamp(44px, 6vw, 72px)",
-                fontWeight: 300,
-                color: "#fff",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.08,
-                marginBottom: "20px",
-              }}
-            >
-              Frequently Asked
-              <br />
-              <em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>
-                Questions
-              </em>
-            </h1>
-            <p
-              style={{
-                fontSize: "17px",
-                color: "rgba(255,255,255,0.6)",
-                maxWidth: "480px",
-                margin: "0 auto",
-                lineHeight: 1.75,
-                fontWeight: 300,
-              }}
-            >
-              Everything you need to know about ordering, craftsmanship, shipping, and care.
-            </p>
-          </div>
-        </section>
-
-        {/* FAQ Content */}
-        <section style={{ padding: "100px 0", background: "var(--surface-alt)" }}>
-          <div className="container">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "240px 1fr",
-                gap: "60px",
-                alignItems: "start",
-              }}
-            >
-              {/* Category Nav */}
-              <div style={{ position: "sticky", top: "120px" }}>
-                <p
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    letterSpacing: "0.15em",
-                    textTransform: "uppercase",
-                    color: "var(--foreground-muted)",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Categories
-                </p>
-                <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  {faqs.map((section) => (
-                    <button
-                      key={section.category}
-                      onClick={() => setActiveCategory(section.category)}
-                      style={{
-                        background:
-                          activeCategory === section.category
-                            ? "var(--primary)"
-                            : "transparent",
-                        color:
-                          activeCategory === section.category
-                            ? "#fff"
-                            : "var(--foreground-muted)",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "12px 16px",
-                        borderRadius: "var(--radius-md)",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        textAlign: "left",
-                        transition: "all 0.2s ease",
-                        letterSpacing: "0.02em",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (activeCategory !== section.category) {
-                          (e.currentTarget as HTMLElement).style.background = "rgba(139,94,60,0.08)";
-                          (e.currentTarget as HTMLElement).style.color = "var(--primary)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (activeCategory !== section.category) {
-                          (e.currentTarget as HTMLElement).style.background = "transparent";
-                          (e.currentTarget as HTMLElement).style.color = "var(--foreground-muted)";
-                        }
-                      }}
-                    >
-                      {section.category}
-                    </button>
-                  ))}
-                </nav>
-
-                {/* Still Have Questions */}
-                <div
-                  style={{
-                    marginTop: "40px",
-                    padding: "24px",
-                    background: "var(--surface)",
-                    borderRadius: "var(--radius-lg)",
-                    border: "1px solid var(--border-light)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: "var(--foreground)",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Still have questions?
-                  </p>
-                  <p
-                    style={{
-                      fontSize: "12px",
-                      color: "var(--foreground-muted)",
-                      lineHeight: 1.6,
-                      marginBottom: "16px",
-                      fontWeight: 300,
-                    }}
-                  >
-                    Our team is happy to help with any enquiry.
-                  </p>
-                  <Link href="/contact" style={{ textDecoration: "none" }}>
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: "100%", justifyContent: "center", fontSize: "11px", padding: "12px" }}
-                    >
-                      Contact Us
-                    </button>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Questions */}
-              <div>
-                {faqs
-                  .filter((s) => s.category === activeCategory)
-                  .map((section) => (
-                    <div key={section.category}>
-                      <h2
-                        style={{
-                          fontFamily: "var(--font-cormorant), Georgia, serif",
-                          fontSize: "36px",
-                          fontWeight: 400,
-                          color: "var(--foreground)",
-                          letterSpacing: "-0.01em",
-                          marginBottom: "32px",
-                        }}
-                      >
-                        {section.category}
-                      </h2>
-                      <div
-                        style={{
-                          background: "var(--surface)",
-                          borderRadius: "var(--radius-xl)",
-                          padding: "8px 40px",
-                          border: "1px solid var(--border-light)",
-                          boxShadow: "var(--shadow-sm)",
-                        }}
-                      >
-                        {section.questions.map((item, i) => (
-                          <AccordionItem key={i} q={item.q} a={item.a} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section
-          style={{
-            padding: "100px 0",
-            background: "var(--surface-alt)",
-            textAlign: "center",
-          }}
-        >
-          <div className="container">
-            <h2
-              style={{
-                fontFamily: "var(--font-cormorant), Georgia, serif",
-                fontSize: "clamp(32px, 5vw, 52px)",
-                fontWeight: 300,
-                color: "var(--foreground)",
-                letterSpacing: "-0.02em",
-                marginBottom: "20px",
-              }}
-            >
-              Ready to Create Your Rug?
-            </h2>
-            <p
-              style={{
-                fontSize: "17px",
-                color: "var(--foreground-muted)",
-                maxWidth: "420px",
-                margin: "0 auto 44px",
-                lineHeight: 1.75,
-                fontWeight: 300,
-              }}
-            >
-              Use our configurator for an instant estimate, or contact us to begin your bespoke journey.
-            </p>
-            <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/shop" style={{ textDecoration: "none" }}>
-                <button className="btn btn-primary" style={{ padding: "17px 40px" }}>
-                  Rug Configurator
-                </button>
-              </Link>
-              <Link href="/contact" style={{ textDecoration: "none" }}>
-                <button className="btn btn-outline" style={{ padding: "16px 36px" }}>
-                  Contact Us
-                </button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
-      <Footer />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <FAQClient faqs={faqs} />
     </>
   );
 }

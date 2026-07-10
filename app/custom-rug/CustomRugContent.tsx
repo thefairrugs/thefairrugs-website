@@ -138,44 +138,285 @@ export default function CustomRugContent() {
 
   return (
     <>
-      {/* Hero */}
-      <section style={{ background: "var(--foreground)", padding: "100px 0", position: "relative", overflow: "hidden" }}>
+      {/* Hero — minimal top banner */}
+      <section style={{ background: "var(--foreground)", padding: "64px 0 48px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 70% 40%, rgba(201,169,110,0.08) 0%, transparent 55%)", pointerEvents: "none" }} />
-        <div className="container" style={{ position: "relative", zIndex: 1 }}>
-          <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "80px", alignItems: "center" }}>
-            <div>
-              <p style={{ fontSize: "11px", letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ width: "28px", height: "1px", background: "var(--gold)", display: "inline-block" }} />
-                Bespoke Service
+        <div className="container" style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+          <p style={{ fontSize: "11px", letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+            <span style={{ width: "28px", height: "1px", background: "var(--gold)", display: "inline-block" }} />
+            Bespoke Service · Jaipur, India
+            <span style={{ width: "28px", height: "1px", background: "var(--gold)", display: "inline-block" }} />
+          </p>
+          <h1 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(40px, 6vw, 68px)", fontWeight: 300, color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.08, marginBottom: "20px" }}>
+            Build Your <em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>Perfect Rug</em>
+          </h1>
+          <p style={{ fontSize: "16px", lineHeight: 1.8, color: "rgba(255,255,255,0.65)", fontWeight: 300, maxWidth: "520px", margin: "0 auto 28px" }}>
+            Custom design, any size, any material — crafted by master artisans with decades of experience.
+          </p>
+          {/* Quick nav */}
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+            {[
+              { label: "Custom Design", href: "#configurator" },
+              { label: "Upload Your Design", href: "#configurator" },
+              { label: "Browse Our Designs", href: "#browse" },
+              { label: "Order Summary", href: "#configurator" },
+            ].map((item) => (
+              <a key={item.label} href={item.href} style={{ textDecoration: "none" }}>
+                <span style={{
+                  display: "inline-block", padding: "9px 20px",
+                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "9999px", color: "rgba(255,255,255,0.85)",
+                  fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em",
+                  transition: "all 0.2s ease", cursor: "pointer",
+                }}>
+                  {item.label}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CONFIGURATOR — appears first per user request (builder at top)
+          ════════════════════════════════════════════════════════════════ */}
+      <section id="configurator" style={{ padding: "80px 0", background: "var(--foreground)" }}>
+        <div className="container">
+          <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: "48px" }}>
+              <p style={{ fontSize: "11px", letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: "14px" }}>✦ &nbsp; Build Your Custom Rug</p>
+              <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 300, color: "#fff", letterSpacing: "-0.02em" }}>
+                Design Your Perfect Rug
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "15px", marginTop: "12px", lineHeight: 1.7 }}>
+                Fill in as much detail as you have. We&apos;ll contact you within 24 hours.
               </p>
-              <h1 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(44px, 6vw, 72px)", fontWeight: 300, color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.08, marginBottom: "28px" }}>
-                Your Vision,<br />
-                <em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>Perfectly Woven</em>
-              </h1>
-              <p style={{ fontSize: "17px", lineHeight: 1.8, color: "rgba(255,255,255,0.65)", fontWeight: 300, maxWidth: "480px", marginBottom: "44px" }}>
-                Every custom rug we create is a singular work of art, crafted to your exact specifications by master artisans with decades of experience.
-              </p>
-              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                <a href="#configurator" style={{ textDecoration: "none" }}>
-                  <button style={{ background: "var(--gold)", color: "var(--foreground)", border: "none", padding: "17px 36px", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 4px 20px rgba(201,169,110,0.35)" }}>
-                    Start Your Design
-                  </button>
-                </a>
-                <a href="#browse" style={{ textDecoration: "none" }}>
-                  <button style={{ background: "transparent", color: "#fff", border: "1.5px solid rgba(255,255,255,0.4)", padding: "16px 32px", borderRadius: "9999px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>
-                    Browse Designs
-                  </button>
-                </a>
-              </div>
             </div>
-            {/* Hero right — CSS gradient panel */}
-            <div style={{ borderRadius: "var(--radius-xl)", overflow: "hidden", aspectRatio: "4/5", position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.5)", background: "linear-gradient(135deg, #2a2218 0%, #3d3020 40%, #4a3c28 100%)" }}>
-              <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(45deg, rgba(201,169,110,0.04) 0px, rgba(201,169,110,0.04) 1px, transparent 1px, transparent 24px), repeating-linear-gradient(-45deg, rgba(201,169,110,0.04) 0px, rgba(201,169,110,0.04) 1px, transparent 1px, transparent 24px)" }} />
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "16px" }}>
-                <div style={{ fontSize: "64px", opacity: 0.4 }}>🧶</div>
-                <p style={{ color: "rgba(201,169,110,0.6)", fontSize: "13px", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600 }}>Handcrafted in Jaipur</p>
+
+            {submitted ? (
+              <div style={{ background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(201,169,110,0.3)", borderRadius: "var(--radius-xl)", padding: "60px 40px", textAlign: "center" }}>
+                <div style={{ fontSize: "56px", marginBottom: "20px" }}>✅</div>
+                <h3 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "32px", fontWeight: 300, color: "#fff", marginBottom: "16px" }}>
+                  Request Received!
+                </h3>
+                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "15px", lineHeight: 1.8, maxWidth: "400px", margin: "0 auto 32px" }}>
+                  Our design team will contact you within 24 hours with a personalised quote and design proposal.
+                </p>
+                <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+                  <a href="https://wa.me/918416919470?text=Hi%2C+I+just+submitted+a+custom+rug+request+on+your+website." target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                    <button style={{ background: "#25D366", color: "#fff", border: "none", padding: "14px 32px", borderRadius: "9999px", fontWeight: 700, fontSize: "12px", letterSpacing: "0.1em", cursor: "pointer" }}>
+                      Follow up on WhatsApp
+                    </button>
+                  </a>
+                  <button onClick={() => setSubmitted(false)} style={{ background: "transparent", color: "rgba(255,255,255,0.6)", border: "1.5px solid rgba(255,255,255,0.2)", padding: "13px 28px", borderRadius: "9999px", fontSize: "12px", cursor: "pointer" }}>
+                    Submit Another Request
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <form onSubmit={handleSubmit} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "48px", display: "flex", flexDirection: "column", gap: "24px" }}>
+
+                {/* Contact */}
+                <div>
+                  <h3 style={{ fontSize: "14px", fontWeight: 700, color: "rgba(255,255,255,0.8)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    Your Contact Details
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Full Name *</label>
+                      <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="Your name" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Email *</label>
+                      <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="you@email.com" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Phone / WhatsApp</label>
+                      <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="+1 234 567 8900" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Country</label>
+                      <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="United States" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rug Specs */}
+                <div>
+                  <h3 style={{ fontSize: "14px", fontWeight: 700, color: "rgba(255,255,255,0.8)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    Rug Specifications
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Rug Type / Technique</label>
+                      <select value={form.rugType} onChange={(e) => setForm({ ...form, rugType: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: form.rugType ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                        <option value="">Select type…</option>
+                        {["Hand Knotted", "Hand Tufted", "Durrie / Flat Weave", "Jute / Natural", "Not sure — advise me"].map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Material</label>
+                      <select value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: form.material ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                        <option value="">Select material…</option>
+                        {["Wool", "Wool & Silk", "Bamboo Silk", "Cotton", "Jute", "Synthetic / Polypropylene", "Not sure — advise me"].map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Size Required</label>
+                      <input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="e.g. 8×10 ft or 240×300 cm" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Shape</label>
+                      <select value={form.shape} onChange={(e) => setForm({ ...form, shape: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: form.shape ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                        <option value="">Select shape…</option>
+                        {["Rectangle", "Square", "Round / Circular", "Oval", "Runner", "Custom Shape"].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Primary Colour</label>
+                      <input value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="e.g. Ivory, Navy, Terracotta" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Secondary Colour</label>
+                      <input value={form.secondaryColor} onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff" }} placeholder="e.g. Gold, Sage, Cream" />
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Style / Look</label>
+                      <select value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: form.style ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                        <option value="">Select style…</option>
+                        {["Traditional / Classic", "Modern / Contemporary", "Bohemian / Boho", "Moroccan", "Scandinavian", "Geometric", "Floral", "Abstract", "Transitional", "Minimalist"].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Room / Intended Use</label>
+                      <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: form.room ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                        <option value="">Select room…</option>
+                        {["Living Room", "Bedroom", "Dining Room", "Hallway / Entryway", "Office / Study", "Hotel Lobby", "Commercial Space", "Outdoor", "Other"].map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Design Upload */}
+                <div>
+                  <h3 style={{ fontSize: "14px", fontWeight: 700, color: "rgba(255,255,255,0.8)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    Upload Your Design (Optional)
+                  </h3>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: "2px dashed rgba(255,255,255,0.2)", borderRadius: "var(--radius-lg)",
+                      padding: "40px", textAlign: "center", cursor: "pointer",
+                      background: designPreview ? "transparent" : "rgba(255,255,255,0.03)",
+                      transition: "all 0.2s ease", position: "relative",
+                    }}
+                    onDragOver={(e) => { e.preventDefault(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file) {
+                        setDesignFile(file);
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setDesignPreview(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  >
+                    {designPreview ? (
+                      <div style={{ position: "relative" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={designPreview} alt="Design preview" style={{ maxHeight: "200px", maxWidth: "100%", objectFit: "contain", borderRadius: "var(--radius-md)" }} />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDesignFile(null); setDesignPreview(""); }}
+                          style={{ position: "absolute", top: "-8px", right: "-8px", background: "#dc2626", border: "none", borderRadius: "50%", width: "24px", height: "24px", color: "#fff", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          ×
+                        </button>
+                        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginTop: "12px" }}>{designFile?.name}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: "36px", marginBottom: "12px", opacity: 0.4 }}>📎</div>
+                        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", marginBottom: "6px" }}>
+                          Click or drag & drop your design file
+                        </p>
+                        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px" }}>
+                          PNG, JPG, PDF, or any image up to 10MB
+                        </p>
+                      </>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileChange}
+                      style={{ display: "none" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label style={{ ...labelSt, color: "rgba(255,255,255,0.5)" }}>Additional Notes</label>
+                  <textarea
+                    rows={4}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Any additional details, references, budget range, or specific requirements..."
+                    style={{ ...inputSt, background: "rgba(255,255,255,0.07)", border: "1.5px solid rgba(255,255,255,0.15)", color: "#fff", resize: "vertical" }}
+                  />
+                </div>
+
+                {submitError && (
+                  <div style={{ background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "var(--radius-md)", padding: "12px 16px", color: "#fca5a5", fontSize: "14px" }}>
+                    {submitError}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    style={{
+                      flex: 1, minWidth: "200px", padding: "18px",
+                      background: "var(--gold)", color: "var(--foreground)",
+                      border: "none", borderRadius: "9999px",
+                      fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em",
+                      textTransform: "uppercase", cursor: submitting ? "default" : "pointer",
+                      opacity: submitting ? 0.7 : 1,
+                      boxShadow: "0 4px 20px rgba(201,169,110,0.35)",
+                    }}
+                  >
+                    {submitting ? "Submitting…" : "Submit Custom Rug Request"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    style={{
+                      padding: "17px 24px", background: "transparent",
+                      color: "rgba(255,255,255,0.5)", border: "1.5px solid rgba(255,255,255,0.15)",
+                      borderRadius: "9999px", fontSize: "12px", cursor: "pointer",
+                    }}
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: "20px", justifyContent: "center", flexWrap: "wrap", paddingTop: "8px" }}>
+                  {[
+                    { icon: "🔒", text: "Secure & Confidential" },
+                    { icon: "⏱️", text: "24hr Response" },
+                    { icon: "🚚", text: "Free Worldwide Shipping" },
+                    { icon: "💬", text: "WhatsApp Support" },
+                  ].map((item) => (
+                    <div key={item.text} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>
+                      <span>{item.icon}</span> {item.text}
+                    </div>
+                  ))}
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </section>

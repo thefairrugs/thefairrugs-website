@@ -33,9 +33,9 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
-        <TrustBadges />
         <Categories />
         <FeaturedRugs />
+        <TrustBadges />
         <Craftsmanship />
         <MaterialsSection />
         <ManufacturingProcess />

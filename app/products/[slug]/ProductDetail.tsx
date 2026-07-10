@@ -11,6 +11,8 @@ import {
   type SizeMasterItem, type PricingItem,
 } from "../../lib/pricing";
 import { useCart } from "../../context/CartContext";
+import ProductReviews from "../../components/ProductReviews";
+import LikeButton from "../../components/LikeButton";
 
 const WA_BASE = "https://wa.me/918416919470";
 
@@ -284,9 +286,10 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
               <p style={{ color: "var(--primary)", fontSize: "13px", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "16px" }}>
                 {product.subtitle}
               </p>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
                 <span style={{ color: "var(--gold)", fontSize: "15px", letterSpacing: "2px" }}>★★★★★</span>
                 <span style={{ fontSize: "13px", color: "var(--foreground-muted)" }}>({product.reviews} reviews)</span>
+                <LikeButton productId={product.id} productTitle={product.title} />
               </div>
 
               {/* ── SIZE SELECTOR — Full Size Master, grouped by shape ── */}
@@ -693,6 +696,9 @@ export default function ProductDetail({ product, relatedProducts }: Props) {
           </p>
         </div>
       </section>
+
+      {/* Customer Reviews */}
+      <ProductReviews productId={product.id} productTitle={product.title} />
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
