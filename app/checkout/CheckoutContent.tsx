@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "../context/CartContext";
 import Image from "next/image";
@@ -68,10 +68,24 @@ function CheckoutForm() {
   const [formValid,   setFormValid]   = useState(false);
   const [formTouched, setFormTouched] = useState(false);
   const [error,       setError]       = useState("");
-  // null = not yet probed; true = card funding available; false = not available
-  const [cardAvailable, setCardAvailable] = useState<boolean | null>(null);
+  const [processing,  setProcessing]  = useState(false);
 
-  // ── Validate required fields ──────────────────────────────────────────────
+  // Track whether the card button is eligible for this account/region.
+  // null = not yet checked | true = show card button | false = hide it
+  const [cardEligible, setCardEligible] = useState<boolean | null>(null);
+
+  // Use a ref to always have the latest form inside PayPal callbacks
+  // (avoids stale-closure bug where callbacks capture old form state)
+  const formRef = useRef<CustomerForm>(EMPTY_FORM);
+  useEffect(() => { formRef.current = form; }, [form]);
+
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
+  const subtotalRef = useRef(subtotal);
+  useEffect(() => { subtotalRef.current = subtotal; }, [subtotal]);
+
+  // ── Validate ──────────────────────────────────────────────────────────────
   const validateForm = useCallback((f: CustomerForm): boolean =>
     !!(f.firstName.trim() && f.lastName.trim() &&
        f.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email) &&
@@ -84,40 +98,48 @@ function CheckoutForm() {
     setFormValid(validateForm(updated));
   };
 
-  // ── After SDK loads, probe whether CARD funding is eligible ───────────────
-  // PayPal exposes window.paypal.isFundingEligible() once the SDK is ready.
+  // ── Check card funding eligibility after SDK loads ─────────────────────────
+  // IMPORTANT: Do NOT call isFundingEligible("card") as a string — use the
+  // same constant the SDK uses internally ("card") after SDK resolves.
   useEffect(() => {
-    if (!isResolved || cardAvailable !== null) return;
+    if (!isResolved || cardEligible !== null) return;
     try {
-      const pp = (window as unknown as { paypal?: { isFundingEligible?: (f: string) => boolean } }).paypal;
-      if (pp?.isFundingEligible) {
+      type PayPalWindow = { paypal?: { isFundingEligible?: (s: string) => boolean } };
+      const pp = (window as unknown as PayPalWindow).paypal;
+      if (typeof pp?.isFundingEligible === "function") {
         const eligible = pp.isFundingEligible("card");
-        console.log("[PayPal] card funding eligible:", eligible);
-        setCardAvailable(eligible);
+        console.log("[PayPal] FUNDING.CARD eligible:", eligible);
+        setCardEligible(eligible);
       } else {
-        // isFundingEligible not exposed — assume available, let SDK decide
-        setCardAvailable(true);
+        setCardEligible(true); // assume available if check not possible
       }
     } catch (e) {
-      console.warn("[PayPal] isFundingEligible check failed:", e);
-      setCardAvailable(true);
+      console.warn("[PayPal] eligibility check error:", e);
+      setCardEligible(true);
     }
-  }, [isResolved, cardAvailable]);
+  }, [isResolved, cardEligible]);
 
-  // ── createOrder — shared by both PayPal wallet and Card buttons ───────────
+  // ── createOrder — called by SDK when any PayPal button is clicked ──────────
+  // CRITICAL: must return a Promise<string> (the orderID).
+  // Any throw here is caught by the SDK and re-thrown as paypal_js_sdk_v5_unhandled_exception.
+  // We must NOT throw validation errors here — validate before the button is clickable.
   const createOrder = useCallback(async (): Promise<string> => {
-    setError("");
-    if (!validateForm(form)) {
-      setFormTouched(true);
-      throw new Error("Please fill in all required fields first.");
-    }
-    if (items.length === 0) throw new Error("Your cart is empty.");
+    const currentForm  = formRef.current;
+    const currentItems = itemsRef.current;
+    const currentTotal = subtotalRef.current;
 
-    const res  = await fetch("/api/paypal/create-order", {
+    setError("");
+
+    const res = await fetch("/api/paypal/create-order", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ items, subtotal, customerInfo: form }),
+      body:    JSON.stringify({
+        items:        currentItems,
+        subtotal:     currentTotal,
+        customerInfo: currentForm,
+      }),
     });
+
     const data = await res.json() as {
       orderID?: string;
       error?:   string;
@@ -126,66 +148,112 @@ function CheckoutForm() {
     };
 
     if (!res.ok || !data.orderID) {
-      // Log full details — visible in browser console AND server logs
       const detail = JSON.stringify(data.details ?? data.error ?? "unknown");
-      console.error("[PayPal] create-order failed:", res.status, detail);
-      throw new Error(
-        `PayPal order creation failed (HTTP ${data.status ?? res.status}): ${detail}`
-      );
+      const msg    = `PayPal order creation failed (${data.status ?? res.status}): ${detail}`;
+      console.error("[PayPal] create-order failed:", msg);
+      // Set error in state so the user sees it on the page
+      setError(`Order creation failed. ${data.error ?? detail}`);
+      // Throw so SDK knows it failed — SDK will call onError
+      throw new Error(msg);
     }
-    return data.orderID;
-  }, [form, items, subtotal, validateForm]);
 
-  // ── onApprove — shared capture flow ──────────────────────────────────────
-  const onApprove = useCallback(async (data: { orderID: string }) => {
+    console.log("[PayPal] Order created:", data.orderID);
+    return data.orderID;
+  }, []); // no deps — reads from refs
+
+  // ── onApprove — called by SDK after buyer approves payment ────────────────
+  // CRITICAL: must NOT throw. Any unhandled throw here becomes paypal_js_sdk_v5_unhandled_exception.
+  // Must return Promise<void>.
+  const onApprove = useCallback(async (data: { orderID: string }): Promise<void> => {
+    const currentForm  = formRef.current;
+    const currentItems = itemsRef.current;
+    const currentTotal = subtotalRef.current;
+
     setError("");
+    setProcessing(true);
+
     try {
       const res    = await fetch("/api/paypal/capture-order", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ orderID: data.orderID, customerInfo: form, items, subtotal }),
+        body:    JSON.stringify({
+          orderID:      data.orderID,
+          customerInfo: currentForm,
+          items:        currentItems,
+          subtotal:     currentTotal,
+        }),
       });
+
       const result = await res.json() as {
-        success?: boolean; orderId?: string; transactionId?: string;
-        amount?: number; currency?: string; error?: string;
+        success?:        boolean;
+        orderId?:        string;
+        transactionId?:  string;
+        amount?:         number;
+        currency?:       string;
+        paymentMethod?:  string;
+        error?:          string;
       };
+
       if (!res.ok || !result.success) {
-        throw new Error(result.error || "Payment capture failed. Please contact support.");
+        const msg = result.error || "Payment capture failed. Please contact support.";
+        console.error("[PayPal] Capture failed:", res.status, msg);
+        setError(msg);
+        setProcessing(false);
+        router.push(`/checkout/error?reason=${encodeURIComponent(msg)}`);
+        return;
       }
+
+      // Success — clear cart first, then navigate
       clearCart();
       const params = new URLSearchParams({
-        orderId:       result.orderId       || "",
-        transactionId: result.transactionId || "",
-        amount:        String(result.amount ?? subtotal),
-        currency:      result.currency      || "USD",
-        email:         form.email,
-        name:          `${form.firstName} ${form.lastName}`,
+        orderId:        result.orderId        ?? "",
+        transactionId:  result.transactionId  ?? "",
+        amount:         String(result.amount  ?? currentTotal),
+        currency:       result.currency       ?? "USD",
+        paymentMethod:  result.paymentMethod  ?? "PayPal",
+        email:          currentForm.email,
+        name:           `${currentForm.firstName} ${currentForm.lastName}`,
       });
       router.push(`/checkout/success?${params.toString()}`);
+
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Payment failed. Please try again.";
+      // Catch EVERYTHING — no unhandled rejection must escape onApprove
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      console.error("[PayPal] onApprove exception:", err);
       setError(msg);
+      setProcessing(false);
       router.push(`/checkout/error?reason=${encodeURIComponent(msg)}`);
     }
-  }, [form, items, subtotal, clearCart, router]);
+  }, [clearCart, router]); // reads form/items/subtotal from refs
 
-  const onCancel = useCallback(() => router.push("/checkout/cancel"), [router]);
-
-  const onError = useCallback((err: Record<string, unknown>) => {
-    const detail = JSON.stringify(err);
-    console.error("[PayPal] SDK onError:", detail);
-    const msg = "A PayPal error occurred. Please try again or use a different payment method.";
-    setError(msg);
-    router.push(`/checkout/error?reason=${encodeURIComponent(msg)}`);
+  // ── onCancel ──────────────────────────────────────────────────────────────
+  const onCancel = useCallback((): void => {
+    console.log("[PayPal] Payment cancelled by user");
+    setProcessing(false);
+    router.push("/checkout/cancel");
   }, [router]);
 
-  // ── Shared button props ───────────────────────────────────────────────────
-  const buttonProps = {
+  // ── onError — SDK-level errors (network, SDK init, etc.) ─────────────────
+  // CRITICAL: must NOT throw. Return void.
+  const onError = useCallback((err: Record<string, unknown>): void => {
+    console.error("[PayPal] SDK onError event:", JSON.stringify(err));
+    setProcessing(false);
+    // Only redirect if the error is not already shown
+    const msg = "A PayPal error occurred. Please try again or contact us via WhatsApp.";
+    setError(msg);
+    // Don't redirect on SDK errors — let the user retry on the same page
+  }, []);
+
+  // ── Shared props for both buttons ─────────────────────────────────────────
+  const sharedButtonProps = {
     createOrder,
     onApprove,
     onCancel,
     onError,
-    forceReRender: [subtotal, form.email] as unknown[],
+    // forceReRender ensures callbacks re-bind if key deps change
+    forceReRender: [formValid] as unknown[],
+    // Disable the button while a payment is processing
+    disabled: processing,
   };
 
   // ── Empty cart guard ──────────────────────────────────────────────────────
@@ -215,7 +283,7 @@ function CheckoutForm() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "48px", alignItems: "start" }}>
 
-          {/* ── Left: Form ─────────────────────────────────────────────────── */}
+          {/* ── Left column ──────────────────────────────────────────────── */}
           <div>
             <h1 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "40px", fontWeight: 300, color: "var(--foreground)", marginBottom: "36px" }}>
               Checkout
@@ -223,18 +291,18 @@ function CheckoutForm() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
 
-              {/* Contact Information */}
-              <div>
+              {/* Contact */}
+              <section>
                 <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--foreground)", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid var(--border-light)" }}>
                   Contact Information
                 </h2>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                  {[
-                    { key: "firstName" as const, label: "First Name *",      required: true,  type: "text" },
-                    { key: "lastName"  as const, label: "Last Name *",       required: true,  type: "text" },
-                    { key: "email"     as const, label: "Email *",           required: true,  type: "email" },
-                    { key: "phone"     as const, label: "Phone / WhatsApp",  required: false, type: "tel" },
-                  ].map(({ key, label, required, type }) => (
+                  {([
+                    { key: "firstName" as const, label: "First Name *",     required: true,  type: "text"  },
+                    { key: "lastName"  as const, label: "Last Name *",      required: true,  type: "text"  },
+                    { key: "email"     as const, label: "Email *",          required: true,  type: "email" },
+                    { key: "phone"     as const, label: "Phone / WhatsApp", required: false, type: "tel"   },
+                  ] as const).map(({ key, label, required, type }) => (
                     <div key={key}>
                       <label style={labelSt}>{label}</label>
                       <input
@@ -251,10 +319,10 @@ function CheckoutForm() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              {/* Shipping Address */}
-              <div>
+              {/* Shipping */}
+              <section>
                 <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--foreground)", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid var(--border-light)" }}>
                   Shipping Address
                 </h2>
@@ -296,15 +364,15 @@ function CheckoutForm() {
                         placeholder="United States"
                         style={{ ...inputSt, borderColor: formTouched && !form.country.trim() ? "#dc2626" : undefined }}
                       />
-                      <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginTop: "4px" }}>
-                        Enter full name or 2-letter code (US, GB, AU…)
+                      <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginTop: "4px", marginBottom: 0 }}>
+                        Full name or 2-letter code (US, GB, AU…)
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Order Notes */}
+              {/* Notes */}
               <div>
                 <label style={labelSt}>Order Notes (optional)</label>
                 <textarea
@@ -317,17 +385,17 @@ function CheckoutForm() {
               </div>
 
               {/* Payment */}
-              <div>
+              <section>
                 <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--foreground)", marginBottom: "16px", paddingBottom: "10px", borderBottom: "1px solid var(--border-light)" }}>
                   Payment
                 </h2>
 
-                {/* Security badge */}
+                {/* Secure badge */}
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: "8px", marginBottom: "16px" }}>
                   <span style={{ fontSize: "20px" }}>🔒</span>
                   <p style={{ margin: 0, fontSize: "13px", color: "#1e40af" }}>
-                    <strong>Secure Checkout</strong> — Pay with PayPal
-                    {cardAvailable !== false && " or Credit / Debit Card"}.
+                    <strong>Secure Checkout via PayPal</strong> — Pay with your PayPal account
+                    {cardEligible !== false && ", credit card, or debit card"}.
                     All transactions are encrypted.
                   </p>
                 </div>
@@ -335,7 +403,14 @@ function CheckoutForm() {
                 {/* Form incomplete warning */}
                 {!formValid && (
                   <div style={{ padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", marginBottom: "16px", fontSize: "13px", color: "#92400e" }}>
-                    ⚠️ Complete all required fields above (*) to enable payment.
+                    ⚠️ Please complete all required fields above (*) to enable payment.
+                  </div>
+                )}
+
+                {/* Processing overlay */}
+                {processing && (
+                  <div style={{ padding: "14px 16px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "8px", marginBottom: "16px", fontSize: "14px", color: "#0369a1", fontWeight: 600 }}>
+                    ⏳ Processing your payment — please wait…
                   </div>
                 )}
 
@@ -346,35 +421,48 @@ function CheckoutForm() {
                   </div>
                 )}
 
-                {/* Payment buttons — dimmed until form valid */}
-                <div style={{ opacity: formValid ? 1 : 0.45, pointerEvents: formValid ? "auto" : "none", transition: "opacity 0.2s" }}>
+                {/*
+                  ─── PayPal Buttons ────────────────────────────────────────
+                  IMPORTANT: components="buttons" ONLY — no "card-fields".
+
+                  When "card-fields" is added to the components URL param, the
+                  PayPal JS SDK changes the behaviour of FUNDING.CARD:
+                    - It tries to render inline card fields (CardFields mode)
+                    - It expects a <PayPalCardFieldsProvider> to be mounted
+                    - When no provider is found, it throws:
+                        paypal_js_sdk_v5_unhandled_exception {}
+
+                  With components="buttons" only, FUNDING.CARD opens the
+                  standard PayPal-hosted card entry popup — no inline fields,
+                  no CardFieldsProvider needed, no crash. Works on all accounts.
+                */}
+                <div
+                  style={{ opacity: formValid && !processing ? 1 : 0.45, pointerEvents: formValid && !processing ? "auto" : "none", transition: "opacity 0.2s" }}
+                  onClick={() => { if (!formValid) setFormTouched(true); }}
+                >
                   <PayPalLoadingBar />
 
-                  {/* ── PayPal Wallet button ────────────────────────────── */}
+                  {/* PayPal Wallet button */}
                   <PayPalButtons
                     fundingSource={FUNDING.PAYPAL}
                     style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay", height: 48 }}
-                    {...buttonProps}
+                    {...sharedButtonProps}
                   />
 
-                  {/* ── Credit / Debit Card button ──────────────────────── */}
-                  {/* Rendered only when card funding is eligible for this account/country.
-                      Uses FUNDING.CARD which triggers PayPal's standard card checkout
-                      (redirect flow — no Hosted Fields required, works on all accounts). */}
-                  {cardAvailable !== false && (
+                  {/* Credit / Debit Card button (shown when eligible) */}
+                  {cardEligible !== false && (
                     <div style={{ marginTop: "10px" }}>
                       <PayPalButtons
                         fundingSource={FUNDING.CARD}
                         style={{ layout: "vertical", color: "black", shape: "rect", label: "pay", height: 48 }}
-                        {...buttonProps}
+                        {...sharedButtonProps}
                       />
                     </div>
                   )}
 
-                  {/* Card not available notice */}
-                  {cardAvailable === false && (
+                  {cardEligible === false && (
                     <div style={{ marginTop: "12px", padding: "12px 16px", background: "#f8f6f0", border: "1px solid var(--border-light)", borderRadius: "8px", fontSize: "13px", color: "var(--foreground-muted)" }}>
-                      Credit/Debit Card checkout is not available in your region — please use the PayPal button above, or contact us via WhatsApp.
+                      Credit/Debit Card is not available for your account or region. Please use the PayPal button above or contact us via WhatsApp.
                     </div>
                   )}
                 </div>
@@ -392,7 +480,7 @@ function CheckoutForm() {
                     </span>
                   </p>
                 </div>
-              </div>
+              </section>
 
               <p style={{ fontSize: "11px", color: "var(--foreground-muted)", textAlign: "center", lineHeight: 1.6 }}>
                 By placing an order you agree to our{" "}
@@ -402,7 +490,7 @@ function CheckoutForm() {
             </div>
           </div>
 
-          {/* ── Right: Order Summary ────────────────────────────────────────── */}
+          {/* ── Right column: Order Summary ───────────────────────────────── */}
           <div style={{ background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", padding: "28px", position: "sticky", top: "100px" }}>
             <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "24px", fontWeight: 500, color: "var(--foreground)", marginBottom: "20px" }}>
               Your Order
@@ -414,8 +502,12 @@ function CheckoutForm() {
                   <Image src={item.productImage} alt={item.productTitle} fill sizes="60px" style={{ objectFit: "cover" }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", lineHeight: 1.3, margin: 0 }}>{item.productTitle}</p>
-                  <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginTop: "3px", marginBottom: 0 }}>{item.sizeLabel} · Qty {item.quantity}</p>
+                  <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)", lineHeight: 1.3, margin: 0 }}>
+                    {item.productTitle}
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--foreground-muted)", marginTop: "3px", marginBottom: 0 }}>
+                    {item.sizeLabel} · Qty {item.quantity}
+                  </p>
                   <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--primary)", marginTop: "4px", marginBottom: 0 }}>
                     ${Math.round(item.unitPrice * item.quantity).toLocaleString()}
                   </p>
@@ -436,9 +528,9 @@ function CheckoutForm() {
 
             <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--border-light)" }}>
               <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
-                {["🔒 SSL Secure", "✓ PayPal Protected", "🌍 Free Shipping"].map((badge) => (
-                  <span key={badge} style={{ fontSize: "11px", color: "var(--foreground-muted)", background: "var(--background)", padding: "4px 10px", borderRadius: "20px", border: "1px solid var(--border-light)" }}>
-                    {badge}
+                {["🔒 SSL Secure", "✓ PayPal Protected", "🌍 Free Shipping"].map((b) => (
+                  <span key={b} style={{ fontSize: "11px", color: "var(--foreground-muted)", background: "var(--background)", padding: "4px 10px", borderRadius: "20px", border: "1px solid var(--border-light)" }}>
+                    {b}
                   </span>
                 ))}
               </div>
@@ -450,7 +542,7 @@ function CheckoutForm() {
   );
 }
 
-// ── Root export — wraps in PayPalScriptProvider ────────────────────────────────
+// ── Root export ────────────────────────────────────────────────────────────────
 export default function CheckoutContent() {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 
@@ -458,16 +550,19 @@ export default function CheckoutContent() {
     <PayPalScriptProvider
       options={{
         clientId,
-        currency:         "USD",
-        intent:           "capture",
-        // Include both "buttons" and "card-fields" components.
-        // "buttons" renders PayPal + card buttons.
-        // "card-fields" is needed if we ever upgrade to Hosted Card Fields.
-        // Having it here does NOT break anything for accounts without Advanced Cards.
-        components:       "buttons,card-fields",
-        // "enable-funding=card" explicitly requests the card button to be rendered.
-        // Without this, PayPal may suppress the card button in some regions/accounts.
-        "enable-funding": "card",
+        currency: "USD",
+        intent:   "capture",
+        // ── CRITICAL: components="buttons" ONLY ────────────────────────────
+        // Do NOT add "card-fields" here.
+        //
+        // With "card-fields" in components, the SDK changes FUNDING.CARD
+        // from a popup-based checkout into an inline CardFields renderer.
+        // Since we do not mount <PayPalCardFieldsProvider>, the SDK throws:
+        //   paypal_js_sdk_v5_unhandled_exception {}
+        //
+        // With "buttons" only, FUNDING.CARD opens a PayPal-hosted popup for
+        // card entry — works on all merchant accounts, zero crash.
+        components: "buttons",
       }}
     >
       <CheckoutForm />

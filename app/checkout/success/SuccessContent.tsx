@@ -5,12 +5,25 @@ import Link from "next/link";
 
 export default function SuccessContent() {
   const params = useSearchParams();
-  const orderId      = params.get("orderId")      || "";
-  const transactionId = params.get("transactionId") || "";
-  const amount       = params.get("amount")       || "";
-  const currency     = params.get("currency")     || "USD";
-  const email        = params.get("email")        || "";
-  const name         = params.get("name")         || "";
+  const orderId        = params.get("orderId")        || "";
+  const transactionId  = params.get("transactionId")  || "";
+  const amount         = params.get("amount")         || "";
+  const currency       = params.get("currency")       || "USD";
+  const email          = params.get("email")          || "";
+  const name           = params.get("name")           || "";
+  const paymentMethod  = params.get("paymentMethod")  || "PayPal";
+
+  // Build a human-readable payment method label with icon
+  const isCard       = paymentMethod.toLowerCase().startsWith("card");
+  const isApplePay   = paymentMethod === "Apple Pay";
+  const isGooglePay  = paymentMethod === "Google Pay";
+  const methodLabel  = isCard
+    ? `Paid via Card (${paymentMethod.replace(/^Card\s*/, "")})`
+    : isApplePay
+      ? "Paid via Apple Pay"
+      : isGooglePay
+        ? "Paid via Google Pay"
+        : "Paid via PayPal";
 
   return (
     <div style={{ background: "var(--background)", minHeight: "70vh", padding: "80px 20px" }}>
@@ -87,7 +100,7 @@ export default function SuccessContent() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  Paid via PayPal
+                  {methodLabel}
                 </span>
               </div>
             </div>
@@ -118,7 +131,7 @@ export default function SuccessContent() {
             </button>
           </Link>
           <a
-            href="https://wa.me/918416919470?text=Hi%2C+I+just+placed+an+order+on+The+Fair+Rugs.+My+order+ID+is+%23{orderId}."
+            href={`https://wa.me/918416919470?text=${encodeURIComponent(`Hi, I just placed an order on The Fair Rugs. My order ID is #${orderId}.`)}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ textDecoration: "none" }}
