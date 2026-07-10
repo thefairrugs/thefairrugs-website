@@ -58,12 +58,17 @@ interface DiscountConfig {
 // ─── Sidebar sections ────────────────────────────────────────────────────────
 const SECTIONS = [
   { id: "dashboard",   label: "Dashboard",        icon: "📊" },
+  { id: "orders",      label: "Orders",           icon: "🛍️" },
+  { id: "analytics",   label: "Analytics",        icon: "📈" },
   { id: "products",    label: "Products",          icon: "🧶" },
   { id: "add-product", label: "Add Product",       icon: "➕" },
   { id: "categories",  label: "Categories",        icon: "📂" },
   { id: "sizes",       label: "Size Master",        icon: "📐" },
   { id: "pricing",     label: "Pricing",            icon: "💲" },
   { id: "discount",    label: "Discount / Sale",   icon: "🏷️" },
+  { id: "reviews",     label: "Reviews",           icon: "⭐" },
+  { id: "favorites",   label: "Favorites",         icon: "❤️" },
+  { id: "activity",    label: "Activity Feed",     icon: "⚡" },
   { id: "inquiries",   label: "All Inquiries",     icon: "📋" },
   { id: "b2b",         label: "B2B Inquiries",     icon: "🤝" },
   { id: "bulk",        label: "Bulk Import/Export", icon: "📦" },
@@ -267,6 +272,11 @@ export default function AdminDashboard() {
           {section === "discount" && <DiscountSection discount={discount} onSaved={fetchDiscount} />}
           {section === "inquiries" && <InquiriesSection inquiries={inquiries} loading={loading} onRefresh={fetchInquiries} filter="all" />}
           {section === "b2b" && <InquiriesSection inquiries={inquiries.filter((i) => i.type === "b2b")} loading={loading} onRefresh={fetchInquiries} filter="b2b" />}
+          {section === "orders" && <OrdersSection />}
+          {section === "analytics" && <AnalyticsSection />}
+          {section === "reviews" && <ReviewsSection products={products} />}
+          {section === "favorites" && <FavoritesSection />}
+          {section === "activity" && <ActivityFeedSection inquiries={inquiries} products={products} />}
           {section === "bulk" && <BulkSection onRefresh={fetchProducts} />}
           {section === "settings" && <SettingsSection adminEmail={adminEmail} onEmailChange={setAdminEmail} />}
         </div>
@@ -2709,6 +2719,660 @@ function PricingSection() {
           Pile height adjustments: Flat Weave ×0.85, Low ×0.95, Medium ×1.00, High ×1.15, Shaggy ×1.25.
           Use the <strong>Discount / Sale</strong> section to apply a global sitewide discount on top.
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Orders Section ──────────────────────────────────────────────────────────
+function OrdersSection() {
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+
+  const STATUS_OPTIONS = ["all", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+  const STATUS_COLORS: Record<string, string> = {
+    confirmed: "#16a34a", processing: "#0369a1", shipped: "#7c3aed",
+    delivered: "#059669", cancelled: "#dc2626", pending: "#d97706",
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/admin/data?type=orders", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json())
+      .then((d) => { setOrders(Array.isArray(d) ? d : []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    await fetch("/api/admin/data", {
+      method: "PUT",
+      headers: { ...adminHeaders() },
+      body: JSON.stringify({ type: "orders", id: orderId, status }),
+    }).catch(() => {});
+    setOrders((prev) => prev.map((o) => (o.id === orderId || o.orderId === orderId) ? { ...o, status } : o));
+    if (selected && (selected.orderId === orderId || selected.id === orderId)) {
+      setSelected((s) => s ? { ...s, status } : s);
+    }
+  };
+
+  const exportCSV = () => {
+    const headers = ["Order ID", "Customer", "Email", "Total", "Status", "Payment Method", "Date", "Items"];
+    const rows = filtered.map((o) => [
+      o.orderId as string,
+      `${(o.customer as Record<string, string>)?.firstName || ""} ${(o.customer as Record<string, string>)?.lastName || ""}`.trim(),
+      (o.customer as Record<string, string>)?.email || "",
+      `$${o.totalAmount || 0}`,
+      o.status as string || "",
+      o.paymentMethod as string || "PayPal",
+      new Date(o.createdAt as string).toLocaleDateString(),
+      Array.isArray(o.items) ? (o.items as { productTitle: string; quantity: number }[]).map((i) => `${i.productTitle} x${i.quantity}`).join("; ") : "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  };
+
+  const filtered = orders.filter((o) => {
+    const q = search.toLowerCase();
+    const customer = o.customer as Record<string, string> || {};
+    const matchSearch = !q || (o.orderId as string || "").toLowerCase().includes(q) ||
+      (customer.email || "").toLowerCase().includes(q) || (customer.firstName || "").toLowerCase().includes(q) ||
+      (customer.lastName || "").toLowerCase().includes(q);
+    const matchStatus = statusFilter === "all" || o.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const totalRevenue = orders.reduce((s, o) => s + ((o.totalAmount as number) || 0), 0);
+
+  if (selected) {
+    const o = selected;
+    const customer = o.customer as Record<string, string> || {};
+    const shipping = o.shippingAddress as Record<string, string> || {};
+    const items = o.items as { productTitle: string; sizeLabel: string; quantity: number; unitPrice: number; lineTotal: number; construction: string }[] || [];
+    return (
+      <div>
+        <button onClick={() => setSelected(null)} style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", color: "#4a5c3a", fontWeight: 600, fontSize: "14px" }}>
+          ← Back to Orders
+        </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "24px" }}>
+          <div>
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <div>
+                  <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#1c1c1a" }}>{o.orderId as string}</h2>
+                  <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>{new Date(o.createdAt as string).toLocaleString()}</p>
+                </div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <select value={o.status as string || "confirmed"} onChange={(e) => updateOrderStatus(o.orderId as string, e.target.value)}
+                    style={{ padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #dcd4c5", fontSize: "13px", cursor: "pointer" }}>
+                    {STATUS_OPTIONS.filter((s) => s !== "all").map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                  </select>
+                  <span style={{ padding: "6px 14px", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, background: (STATUS_COLORS[o.status as string] || "#6b7280") + "20", color: STATUS_COLORS[o.status as string] || "#6b7280" }}>
+                    {(o.status as string || "confirmed").toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: "#f9fafb" }}>
+                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Product</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase" }}>Qty</th>
+                  <th style={{ padding: "10px 12px", textAlign: "right", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase" }}>Total</th>
+                </tr></thead>
+                <tbody>{items.map((item, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "12px" }}>
+                      <p style={{ fontWeight: 600, fontSize: "14px", color: "#1c1c1a", margin: 0 }}>{item.productTitle}</p>
+                      <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>{item.sizeLabel} · {item.construction}</p>
+                    </td>
+                    <td style={{ padding: "12px", textAlign: "center", fontSize: "14px" }}>{item.quantity}</td>
+                    <td style={{ padding: "12px", textAlign: "right", fontWeight: 700, fontSize: "14px", color: "#4a5c3a" }}>${item.lineTotal?.toFixed(2)}</td>
+                  </tr>
+                ))}</tbody>
+                <tfoot><tr style={{ borderTop: "2px solid #e5e7eb" }}>
+                  <td colSpan={2} style={{ padding: "12px", fontWeight: 700, textAlign: "right" }}>Order Total</td>
+                  <td style={{ padding: "12px", fontWeight: 800, fontSize: "18px", textAlign: "right", color: "#4a5c3a" }}>${(o.totalAmount as number)?.toFixed(2)}</td>
+                </tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Customer</h3>
+              <p style={{ fontWeight: 600, color: "#1c1c1a", marginBottom: "4px" }}>{customer.firstName} {customer.lastName}</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>{customer.email}</p>
+              <p style={{ fontSize: "13px", color: "#6b7280" }}>{customer.phone}</p>
+            </div>
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Shipping Address</h3>
+              <p style={{ fontSize: "13px", color: "#1c1c1a", lineHeight: 1.8 }}>{shipping.address}<br />{shipping.city} {shipping.postalCode}<br />{shipping.country}</p>
+            </div>
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Payment</h3>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#16a34a" }}>✓ {o.paymentMethod as string || "PayPal"}</p>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>TXN: {o.paypalTransactionId as string}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#1c1c1a" }}>Orders Management</h2>
+          <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>{orders.length} orders · ${totalRevenue.toFixed(2)} total revenue</p>
+        </div>
+        <button onClick={exportCSV} style={{ padding: "10px 18px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
+          ↓ Export CSV
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+        {[
+          { label: "Total Orders", value: orders.length, color: "#4a5c3a" },
+          { label: "Revenue", value: `$${totalRevenue.toFixed(0)}`, color: "#0369a1" },
+          { label: "Confirmed", value: orders.filter((o) => o.status === "confirmed" || !o.status).length, color: "#16a34a" },
+          { label: "Shipped", value: orders.filter((o) => o.status === "shipped" || o.status === "delivered").length, color: "#7c3aed" },
+        ].map((s, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+            <p style={{ fontSize: "11px", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
+            <p style={{ fontSize: "24px", fontWeight: 800, color: s.color, margin: "6px 0 0" }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by order ID, email, or name…"
+          style={{ flex: 1, minWidth: "220px", padding: "10px 14px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "14px", outline: "none" }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ padding: "10px 14px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "14px", cursor: "pointer" }}>
+          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s === "all" ? "All Statuses" : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+        </select>
+      </div>
+
+      {/* Table */}
+      {loading ? <p style={{ color: "#6b7280", padding: "40px", textAlign: "center" }}>Loading orders…</p> : (
+        filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px", color: "#9ca3af" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🛍️</div>
+            <p style={{ fontSize: "16px", fontWeight: 600 }}>No orders yet</p>
+            <p style={{ fontSize: "13px" }}>Orders will appear here after customers complete payment.</p>
+          </div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr style={{ background: "#f9fafb" }}>
+                {["Order ID", "Customer", "Items", "Total", "Payment", "Status", "Date", ""].map((h, i) => (
+                  <th key={i} style={{ padding: "12px 14px", textAlign: "left", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {filtered.map((o, i) => {
+                  const customer = o.customer as Record<string, string> || {};
+                  const items = o.items as { productTitle: string; quantity: number }[] || [];
+                  const status = (o.status as string) || "confirmed";
+                  return (
+                    <tr key={i} style={{ borderBottom: "1px solid #f3f4f6", cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      onClick={() => setSelected(o)}>
+                      <td style={{ padding: "14px", fontFamily: "monospace", fontSize: "13px", fontWeight: 700, color: "#4a5c3a" }}>{o.orderId as string}</td>
+                      <td style={{ padding: "14px" }}>
+                        <p style={{ fontWeight: 600, fontSize: "14px", color: "#1c1c1a", margin: 0 }}>{customer.firstName} {customer.lastName}</p>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>{customer.email}</p>
+                      </td>
+                      <td style={{ padding: "14px", fontSize: "13px", color: "#6b7280" }}>
+                        {items.length > 0 ? `${items[0].productTitle}${items.length > 1 ? ` +${items.length - 1}` : ""}` : "–"}
+                      </td>
+                      <td style={{ padding: "14px", fontWeight: 700, color: "#1c1c1a" }}>${(o.totalAmount as number)?.toFixed(2) || "0.00"}</td>
+                      <td style={{ padding: "14px", fontSize: "12px", color: "#6b7280" }}>{o.paymentMethod as string || "PayPal"}</td>
+                      <td style={{ padding: "14px" }}>
+                        <span style={{ padding: "4px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: 700, background: (STATUS_COLORS[status] || "#6b7280") + "20", color: STATUS_COLORS[status] || "#6b7280" }}>
+                          {status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px", fontSize: "12px", color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {new Date(o.createdAt as string).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: "14px" }}>
+                        <button onClick={(e) => { e.stopPropagation(); setSelected(o); }}
+                          style={{ padding: "6px 12px", background: "#f0f4e8", border: "1px solid #c8d4b8", borderRadius: "6px", cursor: "pointer", fontSize: "12px", color: "#4a5c3a", fontWeight: 600 }}>
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+// ─── Analytics Section ───────────────────────────────────────────────────────
+function AnalyticsSection() {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<"today" | "last7" | "last30" | "last365">("last30");
+
+  useEffect(() => {
+    fetch("/api/analytics", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading analytics…</div>;
+  if (!data) return <div style={{ padding: "40px", textAlign: "center" }}>No analytics data yet. Analytics are collected as visitors browse the website.</div>;
+
+  const rangeData = (data[range] as Record<string, number>) || { views: 0, visitors: 0 };
+  const devices = (data.devices as Record<string, number>) || {};
+  const countries = (data.countries as [string, number][]) || [];
+  const sources = (data.sources as Record<string, number>) || {};
+  const daily = (data.dailyViews as { date: string; views: number }[]) || [];
+  const topPages = (data.topPages as { path: string; views: number }[]) || [];
+  const maxViews = daily.length > 0 ? Math.max(...daily.map((d) => d.views), 1) : 1;
+
+  const deviceTotal = Object.values(devices).reduce((s, v) => s + v, 0) || 1;
+  const sourceTotal = Object.values(sources).reduce((s, v) => s + v, 0) || 1;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#1c1c1a" }}>Analytics Dashboard</h2>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {(["today", "last7", "last30", "last365"] as const).map((r) => (
+            <button key={r} onClick={() => setRange(r)}
+              style={{ padding: "8px 14px", borderRadius: "8px", border: "1.5px solid", cursor: "pointer", fontSize: "12px", fontWeight: 600,
+                background: range === r ? "#4a5c3a" : "#fff", color: range === r ? "#fff" : "#4a5c3a", borderColor: range === r ? "#4a5c3a" : "#c8d4b8" }}>
+              {r === "today" ? "Today" : r === "last7" ? "7 Days" : r === "last30" ? "30 Days" : "12 Months"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+        {[
+          { label: "Page Views", value: rangeData.views || 0, icon: "👁" },
+          { label: "Visitors", value: rangeData.visitors || 0, icon: "👤" },
+          { label: "Total Views (All)", value: (data.total as Record<string, number>)?.views || 0, icon: "📊" },
+          { label: "Top Country", value: countries[0]?.[0] || "–", icon: "🌍" },
+        ].map((s, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <p style={{ fontSize: "11px", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
+              <span style={{ fontSize: "20px" }}>{s.icon}</span>
+            </div>
+            <p style={{ fontSize: "28px", fontWeight: 800, color: "#1c1c1a", margin: "8px 0 0" }}>{s.value.toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px", marginBottom: "20px" }}>
+        {/* Chart */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a", marginBottom: "20px" }}>Daily Page Views (Last 30 Days)</h3>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "120px" }}>
+            {daily.slice(-30).map((d, i) => (
+              <div key={i} title={`${d.date}: ${d.views} views`} style={{ flex: 1, background: "#4a5c3a", borderRadius: "3px 3px 0 0", opacity: 0.7 + (d.views / maxViews) * 0.3,
+                height: `${Math.max(4, (d.views / maxViews) * 100)}%`, transition: "all 0.2s ease", cursor: "default" }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = `${0.7 + (d.views / maxViews) * 0.3}`)}
+              />
+            ))}
+          </div>
+          {daily.length === 0 && <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px" }}>No data yet. Analytics tracked as visitors browse.</p>}
+        </div>
+
+        {/* Devices */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Devices</h3>
+          {Object.entries(devices).map(([device, count]) => (
+            <div key={device} style={{ marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                <span style={{ fontSize: "13px", textTransform: "capitalize", color: "#374151" }}>{device}</span>
+                <span style={{ fontSize: "13px", fontWeight: 700 }}>{Math.round((count / deviceTotal) * 100)}%</span>
+              </div>
+              <div style={{ height: "6px", background: "#f3f4f6", borderRadius: "3px" }}>
+                <div style={{ height: "100%", width: `${(count / deviceTotal) * 100}%`, background: "#4a5c3a", borderRadius: "3px" }} />
+              </div>
+            </div>
+          ))}
+          {Object.keys(devices).length === 0 && <p style={{ color: "#9ca3af", fontSize: "13px" }}>No device data yet.</p>}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px" }}>
+        {/* Countries */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Top Countries</h3>
+          {countries.slice(0, 8).map(([country, count], i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f3f4f6", fontSize: "13px" }}>
+              <span style={{ color: "#374151" }}>{country || "Unknown"}</span>
+              <span style={{ fontWeight: 700, color: "#4a5c3a" }}>{count}</span>
+            </div>
+          ))}
+          {countries.length === 0 && <p style={{ color: "#9ca3af", fontSize: "13px" }}>No country data yet.</p>}
+        </div>
+
+        {/* Traffic Sources */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Traffic Sources</h3>
+          {Object.entries(sources).map(([src, count]) => (
+            <div key={src} style={{ marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                <span style={{ fontSize: "13px", textTransform: "capitalize", color: "#374151" }}>{src}</span>
+                <span style={{ fontSize: "13px", fontWeight: 700 }}>{Math.round((count / sourceTotal) * 100)}%</span>
+              </div>
+              <div style={{ height: "6px", background: "#f3f4f6", borderRadius: "3px" }}>
+                <div style={{ height: "100%", width: `${(count / sourceTotal) * 100}%`, background: "#0369a1", borderRadius: "3px" }} />
+              </div>
+            </div>
+          ))}
+          {Object.keys(sources).length === 0 && <p style={{ color: "#9ca3af", fontSize: "13px" }}>No source data yet.</p>}
+        </div>
+
+        {/* Top Pages */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Top Pages</h3>
+          {topPages.slice(0, 8).map((p, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f3f4f6", fontSize: "12px" }}>
+              <span style={{ color: "#374151", fontFamily: "monospace" }}>{p.path.slice(0, 24)}</span>
+              <span style={{ fontWeight: 700, color: "#4a5c3a" }}>{p.views}</span>
+            </div>
+          ))}
+          {topPages.length === 0 && <p style={{ color: "#9ca3af", fontSize: "13px" }}>No page data yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reviews Section ─────────────────────────────────────────────────────────
+interface ReviewItem {
+  id: string; productId: string; productTitle: string; customerName: string;
+  customerCountry: string; rating: number; title: string; body: string;
+  verifiedPurchase: boolean; approved: boolean; featured: boolean; createdAt: string;
+}
+
+function ReviewsSection({ products }: { products: Product[] }) {
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ productId: "", customerName: "", customerCountry: "", rating: 5, title: "", body: "", verifiedPurchase: false });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetch("/api/reviews?all=1", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setReviews(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const update = async (id: string, fields: Partial<ReviewItem> & { action?: string }) => {
+    await fetch("/api/reviews", { method: "PUT", headers: { ...adminHeaders() }, body: JSON.stringify({ id, ...fields }) }).catch(() => {});
+    if (fields.action === "delete") { setReviews((r) => r.filter((x) => x.id !== id)); }
+    else { setReviews((r) => r.map((x) => x.id === id ? { ...x, ...fields } : x)); }
+  };
+
+  const addReview = async () => {
+    if (!form.productId || !form.customerName || !form.body) return;
+    setSaving(true);
+    const prod = products.find((p) => p.id === form.productId);
+    await fetch("/api/reviews", { method: "POST", headers: { ...adminHeaders() }, body: JSON.stringify({ ...form, productSlug: prod?.slug || "", productTitle: prod?.title || "" }) });
+    setSaving(false); setShowAdd(false); load();
+  };
+
+  const filtered = reviews.filter((r) => filter === "all" || (filter === "pending" ? !r.approved : r.approved));
+  const avgRating = reviews.filter((r) => r.approved).reduce((s, r, _, a) => s + r.rating / a.length, 0);
+
+  const StarDisplay = ({ rating }: { rating: number }) => (
+    <span>{[1,2,3,4,5].map((i) => <span key={i} style={{ color: i <= rating ? "#f59e0b" : "#d1d5db", fontSize: "14px" }}>★</span>)}</span>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <div>
+          <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#1c1c1a" }}>Reviews Management</h2>
+          <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>
+            {reviews.filter((r) => r.approved).length} approved · {reviews.filter((r) => !r.approved).length} pending · Avg {avgRating.toFixed(1)} ⭐
+          </p>
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: "10px 18px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
+          + Add Review
+        </button>
+      </div>
+
+      {showAdd && (
+        <div style={{ background: "#f0f4e8", borderRadius: "12px", border: "1px solid #c8d4b8", padding: "24px", marginBottom: "24px" }}>
+          <h3 style={{ fontWeight: 700, marginBottom: "16px" }}>Add Review</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+            <div>
+              <label style={labelStyle}>Product *</label>
+              <select value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} style={selectStyle}>
+                <option value="">Select product…</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Customer Name *</label>
+              <input value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Country</label>
+              <input value={form.customerCountry} onChange={(e) => setForm({ ...form, customerCountry: e.target.value })} style={inputStyle} placeholder="United States" />
+            </div>
+            <div>
+              <label style={labelStyle}>Rating</label>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                {[1,2,3,4,5].map((n) => (
+                  <button key={n} onClick={() => setForm({ ...form, rating: n })}
+                    style={{ fontSize: "24px", background: "none", border: "none", cursor: "pointer", color: n <= form.rating ? "#f59e0b" : "#d1d5db" }}>★</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Review Title</label>
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingTop: "20px" }}>
+              <input type="checkbox" id="vp" checked={form.verifiedPurchase} onChange={(e) => setForm({ ...form, verifiedPurchase: e.target.checked })} />
+              <label htmlFor="vp" style={{ fontSize: "13px" }}>Verified Purchase</label>
+            </div>
+            <div style={{ gridColumn: "1/-1" }}>
+              <label style={labelStyle}>Review Body *</label>
+              <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4}
+                style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <button onClick={addReview} disabled={saving} style={{ padding: "10px 20px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}>
+              {saving ? "Saving…" : "Add Review"}
+            </button>
+            <button onClick={() => setShowAdd(false)} style={{ padding: "10px 20px", background: "#fff", color: "#6b7280", border: "1px solid #dcd4c5", borderRadius: "8px", cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+        {(["all", "pending", "approved"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: "8px 16px", borderRadius: "8px", border: "1.5px solid", cursor: "pointer", fontSize: "13px", fontWeight: 600,
+            background: filter === f ? "#4a5c3a" : "#fff", color: filter === f ? "#fff" : "#4a5c3a", borderColor: filter === f ? "#4a5c3a" : "#c8d4b8" }}>
+            {f.charAt(0).toUpperCase() + f.slice(1)} ({filter === f ? filtered.length : reviews.filter((r) => f === "all" || (f === "pending" ? !r.approved : r.approved)).length})
+          </button>
+        ))}
+      </div>
+
+      {loading ? <p style={{ textAlign: "center", color: "#6b7280", padding: "40px" }}>Loading…</p> : filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", color: "#9ca3af" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>⭐</div>
+          <p style={{ fontWeight: 600 }}>No reviews {filter !== "all" ? `(${filter})` : ""}</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {filtered.map((r) => (
+            <div key={r.id} style={{ background: "#fff", borderRadius: "12px", border: `1px solid ${r.approved ? "#e5e7eb" : "#fde68a"}`, padding: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <StarDisplay rating={r.rating} />
+                    {r.verifiedPurchase && <span style={{ fontSize: "11px", background: "#dcfce7", color: "#16a34a", padding: "2px 8px", borderRadius: "9999px", fontWeight: 700 }}>✓ Verified</span>}
+                    {!r.approved && <span style={{ fontSize: "11px", background: "#fef3c7", color: "#d97706", padding: "2px 8px", borderRadius: "9999px", fontWeight: 700 }}>Pending</span>}
+                    {r.featured && <span style={{ fontSize: "11px", background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: "9999px", fontWeight: 700 }}>Featured</span>}
+                  </div>
+                  {r.title && <p style={{ fontWeight: 700, fontSize: "15px", color: "#1c1c1a", marginBottom: "4px" }}>{r.title}</p>}
+                  <p style={{ fontSize: "14px", color: "#374151", marginBottom: "8px", lineHeight: 1.6 }}>{r.body}</p>
+                  <p style={{ fontSize: "12px", color: "#9ca3af" }}>
+                    {r.customerName} · {r.customerCountry} · {r.productTitle} · {new Date(r.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>
+                  {!r.approved && <button onClick={() => update(r.id, { approved: true })} style={{ padding: "6px 12px", background: "#dcfce7", border: "1px solid #86efac", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600, color: "#16a34a" }}>Approve</button>}
+                  {r.approved && <button onClick={() => update(r.id, { approved: false })} style={{ padding: "6px 12px", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "6px", cursor: "pointer", fontSize: "12px", color: "#6b7280" }}>Hide</button>}
+                  <button onClick={() => update(r.id, { featured: !r.featured })} style={{ padding: "6px 12px", background: r.featured ? "#ede9fe" : "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "6px", cursor: "pointer", fontSize: "12px", color: r.featured ? "#7c3aed" : "#6b7280" }}>
+                    {r.featured ? "Unfeature" : "Feature"}
+                  </button>
+                  <button onClick={() => update(r.id, { action: "delete" })} style={{ padding: "6px 12px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "12px", color: "#dc2626" }}>Delete</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Favorites Section ───────────────────────────────────────────────────────
+function FavoritesSection() {
+  const [data, setData] = useState<{ total: number; byProduct: { productId: string; productTitle: string; count: number; lastLiked: string }[]; recent: { productId: string; productTitle: string; visitorId: string; likedAt: string }[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/favorites?all=1", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setData(d)).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading favorites…</div>;
+  if (!data) return <div style={{ padding: "40px", textAlign: "center" }}>Failed to load favorites data.</div>;
+
+  return (
+    <div>
+      <div style={{ marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#1c1c1a" }}>Likes &amp; Favorites</h2>
+        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>{data.total} total likes across all products</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+        {/* Most liked */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Most Liked Products</h3>
+          {data.byProduct.length === 0 ? (
+            <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px" }}>No likes yet. Customers can like products by clicking the ♡ heart button on product pages.</p>
+          ) : data.byProduct.slice(0, 10).map((p, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <div>
+                <p style={{ fontWeight: 600, fontSize: "14px", color: "#1c1c1a", margin: 0 }}>{p.productTitle || p.productId}</p>
+                <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0 }}>Last liked {new Date(p.lastLiked).toLocaleDateString()}</p>
+              </div>
+              <span style={{ fontSize: "16px", fontWeight: 800, color: "#ef4444" }}>❤ {p.count}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent likes */}
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#1c1c1a", marginBottom: "16px" }}>Recent Likes</h3>
+          {data.recent.length === 0 ? (
+            <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px" }}>No recent likes.</p>
+          ) : data.recent.slice(0, 12).map((r, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f3f4f6", fontSize: "13px" }}>
+              <span style={{ color: "#374151" }}>❤ {r.productTitle || r.productId}</span>
+              <span style={{ color: "#9ca3af" }}>{new Date(r.likedAt).toLocaleDateString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity Feed Section ────────────────────────────────────────────────────
+function ActivityFeedSection({ inquiries, products }: { inquiries: Inquiry[]; products: Product[] }) {
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/data?type=orders", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setOrders(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Build unified activity feed
+  const activities: { type: string; title: string; subtitle: string; ts: number; icon: string; color: string }[] = [];
+
+  for (const o of orders.slice(0, 20)) {
+    activities.push({
+      type: "order", icon: "🛍️", color: "#16a34a",
+      title: `New Order — ${o.orderId as string || ""}`,
+      subtitle: `$${(o.totalAmount as number)?.toFixed(2) || "0"} · ${((o.customer as Record<string, string>)?.firstName || "")} ${((o.customer as Record<string, string>)?.lastName || "")}`,
+      ts: new Date(o.createdAt as string || 0).getTime(),
+    });
+  }
+  for (const inq of inquiries.slice(0, 20)) {
+    activities.push({
+      type: "inquiry", icon: inq.type === "b2b" ? "🤝" : "📋", color: "#0369a1",
+      title: `${inq.type === "b2b" ? "B2B Inquiry" : "New Inquiry"} — ${inq.name || inq.email || ""}`,
+      subtitle: inq.type === "b2b" ? (inq.companyName || "") : (inq.message || "").slice(0, 60),
+      ts: new Date(inq.createdAt || 0).getTime(),
+    });
+  }
+  activities.sort((a, b) => b.ts - a.ts);
+
+  return (
+    <div>
+      <div style={{ marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#1c1c1a" }}>Activity Feed</h2>
+        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px" }}>Recent orders, inquiries, and events across your store</p>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+        {activities.length === 0 ? (
+          <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚡</div>
+            <p style={{ fontWeight: 600 }}>No activity yet</p>
+            <p style={{ fontSize: "13px" }}>Orders and inquiries will appear here as they come in.</p>
+          </div>
+        ) : activities.slice(0, 50).map((a, i) => (
+          <div key={i} style={{ display: "flex", gap: "16px", alignItems: "flex-start", padding: "16px 20px", borderBottom: i < activities.length - 1 ? "1px solid #f3f4f6" : "none",
+            transition: "background 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: a.color + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>
+              {a.icon}
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, fontSize: "14px", color: "#1c1c1a", margin: 0 }}>{a.title}</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0" }}>{a.subtitle}</p>
+            </div>
+            <p style={{ fontSize: "12px", color: "#9ca3af", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {new Date(a.ts).toLocaleDateString()} {new Date(a.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );

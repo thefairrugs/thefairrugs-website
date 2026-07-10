@@ -20,7 +20,7 @@ const navColumns = [
   {
     title: "Services",
     links: [
-      { label: "Rug Configurator", href: "/shop" },
+      { label: "Rug Configurator", href: "/custom-rug" },
       { label: "Custom Design", href: "/custom-rug" },
       { label: "B2B & Wholesale", href: "/b2b" },
       { label: "Interior Designers", href: "/b2b" },
@@ -58,6 +58,24 @@ const countries = [
   "🇸🇬 Singapore", "🇳🇿 NZ", "🇳🇱 Netherlands", "🇯🇵 Japan",
 ];
 
+const CERTIFICATIONS = [
+  { icon: "🏅", name: "OEKO-TEX®", desc: "Certified Safe" },
+  { icon: "♻️", name: "GRS", desc: "Recycled Content" },
+  { icon: "🤝", name: "Fair Trade", desc: "Ethical Practice" },
+  { icon: "✅", name: "ISO 9001", desc: "Quality Certified" },
+  { icon: "🌿", name: "Eco Dyes", desc: "Non-Toxic Colors" },
+  { icon: "🇮🇳", name: "Made in India", desc: "Jaipur Artisans" },
+];
+
+const PAYMENT_METHODS = [
+  { label: "PayPal", bg: "#003087", text: "#fff", abbr: "PP" },
+  { label: "Visa", bg: "#1a1f71", text: "#fff", abbr: "VISA" },
+  { label: "Mastercard", bg: "#eb001b", text: "#fff", abbr: "MC" },
+  { label: "Amex", bg: "#007bc1", text: "#fff", abbr: "AMEX" },
+  { label: "Apple Pay", bg: "#000", text: "#fff", abbr: "⊛ Pay" },
+  { label: "Google Pay", bg: "#4285f4", text: "#fff", abbr: "G Pay" },
+];
+
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -76,6 +94,32 @@ export default function Footer() {
 
   return (
     <footer style={{ background: "var(--charcoal)", color: "rgba(255,255,255,0.7)" }}>
+
+      {/* USA Tariff-Free Notice Strip */}
+      <div style={{
+        background: "linear-gradient(90deg, #1a2814 0%, #243520 50%, #1a2814 100%)",
+        borderBottom: "1px solid rgba(184,151,90,0.2)",
+        padding: "14px 0",
+        textAlign: "center",
+      }}>
+        <div className="container" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "32px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.8)", fontWeight: 500, display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>🇺🇸</span>
+            <span><strong style={{ color: "var(--gold)" }}>USA Orders:</strong> Tariff-Free Shipping Available — No Hidden Import Fees</span>
+          </span>
+          <span style={{ width: "1px", height: "16px", background: "rgba(255,255,255,0.15)", display: "inline-block" }} />
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.8)", fontWeight: 500, display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>🇬🇧</span>
+            <span><strong style={{ color: "var(--gold)" }}>UK Orders:</strong> Delivered Duty Paid — No Surprise Customs Charges</span>
+          </span>
+          <span style={{ width: "1px", height: "16px", background: "rgba(255,255,255,0.15)", display: "inline-block" }} />
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)", fontWeight: 500, display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "14px" }}>🚚</span>
+            Free Express Worldwide Shipping on All Orders
+          </span>
+        </div>
+      </div>
+
       {/* Global Shipping Banner */}
       <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "24px 0", overflow: "hidden" }}>
         <div style={{
@@ -93,6 +137,40 @@ export default function Footer() {
               <span style={{ color: "var(--gold)", fontSize: "9px" }}>✦</span>
             </span>
           ))}
+        </div>
+      </div>
+
+      {/* Certifications Strip */}
+      <div style={{
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        padding: "28px 0",
+        background: "rgba(255,255,255,0.02)",
+      }}>
+        <div className="container">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px", justifyContent: "center" }}>
+            <span style={{ fontSize: "9px", color: "var(--gold)", letterSpacing: "0.25em", textTransform: "uppercase", fontWeight: 700 }}>✦ &nbsp; CERTIFIED QUALITY</span>
+          </div>
+          <div
+            className="certs-grid"
+            style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}
+          >
+            {CERTIFICATIONS.map((cert) => (
+              <div key={cert.name} style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                padding: "10px 18px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "var(--radius-md)",
+                minWidth: "140px",
+              }}>
+                <span style={{ fontSize: "18px" }}>{cert.icon}</span>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "rgba(255,255,255,0.8)", letterSpacing: "0.06em" }}>{cert.name}</div>
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", marginTop: "1px" }}>{cert.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -298,36 +376,107 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Trust Strip */}
+        {/* Premium Trust Strip */}
         <div style={{
           borderTop: "1px solid rgba(255,255,255,0.07)",
           marginTop: "60px", paddingTop: "40px",
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "20px",
         }}>
-          {[
-            { icon: "🚚", text: "Free Worldwide Shipping" },
-            { icon: "✋", text: "100% Handmade Guarantee" },
-            { icon: "🔒", text: "Secure Payments" },
-            { icon: "📦", text: "Fully Insured Delivery" },
-          ].map((item) => (
-            <div key={item.text} style={{
-              display: "flex", alignItems: "center", gap: "12px",
-              padding: "14px 18px",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: "var(--radius-md)",
-            }}>
-              <span style={{ fontSize: "18px" }}>{item.icon}</span>
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "rgba(255,255,255,0.45)", letterSpacing: "0.03em" }}>
-                {item.text}
+          {/* Trust Badges Row */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px",
+          }} className="trust-grid">
+            {[
+              { icon: "🚚", title: "Free Worldwide Shipping", desc: "On every order, everywhere" },
+              { icon: "✋", title: "100% Handmade Guarantee", desc: "Crafted by master artisans" },
+              { icon: "🔒", title: "Secure Payments", desc: "SSL encrypted & PCI compliant" },
+              { icon: "📦", title: "Fully Insured Delivery", desc: "End-to-end coverage" },
+            ].map((item) => (
+              <div key={item.title} style={{
+                display: "flex", alignItems: "flex-start", gap: "14px",
+                padding: "18px 20px",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: "var(--radius-md)",
+              }}>
+                <span style={{ fontSize: "22px", flexShrink: 0 }}>{item.icon}</span>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: "0.02em", marginBottom: "3px" }}>{item.title}</div>
+                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", fontWeight: 300 }}>{item.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Payment Methods + Return Policy */}
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            flexWrap: "wrap", gap: "20px",
+            padding: "20px 0",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+          }}>
+            {/* Payment methods */}
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600 }}>
+                Secure Payments:
               </span>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {PAYMENT_METHODS.map((pm) => (
+                  <div
+                    key={pm.label}
+                    title={pm.label}
+                    style={{
+                      background: pm.bg, color: pm.text,
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      fontSize: "10px", fontWeight: 800,
+                      letterSpacing: "0.04em",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      minWidth: "42px", textAlign: "center",
+                    }}
+                  >
+                    {pm.abbr}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+
+            {/* Return Policy highlight */}
+            <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
+              <Link href="/returns" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "8px" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.8")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+              >
+                <span style={{ fontSize: "14px" }}>↩️</span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
+                  Easy Return Policy
+                </span>
+              </Link>
+              <Link href="/refunds" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "8px" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.8")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+              >
+                <span style={{ fontSize: "14px" }}>💳</span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
+                  Refund Policy
+                </span>
+              </Link>
+              <Link href="/shipping" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "8px" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.8")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+              >
+                <span style={{ fontSize: "14px" }}>📋</span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
+                  Shipping Policy
+                </span>
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* Bottom Bar */}
         <div style={{
           borderTop: "1px solid rgba(255,255,255,0.06)",
-          marginTop: "36px", paddingTop: "24px",
+          marginTop: "24px", paddingTop: "24px",
           display: "flex", justifyContent: "space-between",
           alignItems: "center", flexWrap: "wrap", gap: "16px",
         }}>
@@ -369,9 +518,11 @@ export default function Footer() {
         }
         @media (max-width: 768px) {
           .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
+          .trust-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 480px) {
           .footer-grid { grid-template-columns: 1fr !important; }
+          .trust-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </footer>

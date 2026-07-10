@@ -104,6 +104,17 @@ export default async function ProductPage({ params }: Props) {
 
   const related = getRelatedFromDB(product, 4);
 
+  // BreadcrumbList JSON-LD
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": BASE_URL },
+      { "@type": "ListItem", "position": 2, "name": "Shop", "item": `${BASE_URL}/shop` },
+      { "@type": "ListItem", "position": 3, "name": product.title, "item": `${BASE_URL}/products/${product.slug}` },
+    ],
+  };
+
   // JSON-LD Structured Data for SEO
   const jsonLd = {
     "@context": "https://schema.org",
@@ -154,6 +165,10 @@ export default async function ProductPage({ params }: Props) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
         />
         <ProductDetail product={product} relatedProducts={related} />
       </main>

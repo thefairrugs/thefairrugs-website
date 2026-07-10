@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCart } from "../context/CartContext";
+import TariffAnnouncementBar from "./TariffAnnouncementBar";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -36,6 +37,9 @@ export default function Header() {
 
   return (
     <>
+      {/* USA Tariff-Free Announcement Bar */}
+      <TariffAnnouncementBar />
+
       {/* Top Announcement Bar */}
       <div
         style={{
