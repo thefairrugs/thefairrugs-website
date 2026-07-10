@@ -89,12 +89,21 @@ const MANUFACTURING_STEPS = [
   },
 ];
 
-const MOQ_TABLE = [
-  { construction: "Hand Knotted", moq: "1 piece", leadTime: "4–8 weeks", priceRange: "From $280/sq.ft" },
-  { construction: "Hand Tufted", moq: "1 piece", leadTime: "3–5 weeks", priceRange: "From $45/sq.ft" },
-  { construction: "Durrie / Flat Weave", moq: "5 pieces", leadTime: "2–4 weeks", priceRange: "From $18/sq.ft" },
-  { construction: "Jute / Natural Fibre", moq: "5 pieces", leadTime: "2–3 weeks", priceRange: "From $12/sq.ft" },
-  { construction: "Custom Blend", moq: "10 pieces", leadTime: "5–8 weeks", priceRange: "On Request" },
+const QUALITY_CONTROL = [
+  { icon: "🔬", title: "Raw Material Inspection", desc: "Every yarn batch is tested for tensile strength, colourfastness, and fibre content before entering production." },
+  { icon: "📏", title: "Dimension & Tolerance Check", desc: "Every rug is measured to ±1cm tolerance. Oversized or undersized pieces are returned to finishing." },
+  { icon: "🎨", title: "Colour Accuracy", desc: "Pantone-matched dye baths verified under D65 standard lighting. Colour delta checked against approved swatches." },
+  { icon: "✋", title: "Pile Height Verification", desc: "Pile height measured across 5 zones. Any deviation from specification triggers re-trimming." },
+  { icon: "📸", title: "Photo Milestone Reports", desc: "Progress photos sent at: loom setup, 50% weaving, pre-wash, post-wash, and final inspection stages." },
+  { icon: "📋", title: "Final QC Certificate", desc: "Each shipment includes a signed QC certificate covering knot count, materials, dimensions, and packing details." },
+];
+
+const MOQ_INFO = [
+  { construction: "Hand Knotted", moq: "1 piece", leadTime: "4–8 weeks", note: "Luxury handcrafted · Quote on request" },
+  { construction: "Hand Tufted", moq: "1 piece", leadTime: "3–5 weeks", note: "Commercial grade available · Quote on request" },
+  { construction: "Durrie / Flat Weave", moq: "5 pieces", leadTime: "2–4 weeks", note: "Bulk discounts available · Quote on request" },
+  { construction: "Jute / Natural Fibre", moq: "5 pieces", leadTime: "2–3 weeks", note: "Eco-certified · Quote on request" },
+  { construction: "Custom Blend", moq: "10 pieces", leadTime: "5–8 weeks", note: "Tailored specification · Quote on request" },
 ];
 
 const EXPORT_MARKETS = [
@@ -382,6 +391,90 @@ export default function B2BContent() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
+          FACTORY INTRODUCTION
+          ═══════════════════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 0", background: "var(--background)" }}>
+        <div className="container">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "64px", alignItems: "center" }}>
+            <div>
+              <p className="eyebrow" style={{ marginBottom: "14px" }}>✦ &nbsp; About Our Factory</p>
+              <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 300, color: "var(--foreground)", letterSpacing: "-0.02em", marginBottom: "20px" }}>
+                India&apos;s Premier Rug Manufacturing Facility
+              </h2>
+              <p style={{ fontSize: "16px", lineHeight: 1.8, color: "var(--foreground-muted)", fontWeight: 300, marginBottom: "24px" }}>
+                Founded in Jaipur — the rug-weaving capital of India — our factory combines 15+ years of artisan tradition with modern quality standards. We produce over 5,000 rugs annually for clients in 45+ countries, from small boutiques to the world&apos;s finest hotels.
+              </p>
+              <p style={{ fontSize: "16px", lineHeight: 1.8, color: "var(--foreground-muted)", fontWeight: 300, marginBottom: "32px" }}>
+                Every product is made to order — no warehouse stock, no compromises. You work directly with our production team from design approval to door delivery.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                {[
+                  { num: "15+", label: "Years in Business" },
+                  { num: "200+", label: "Master Artisans" },
+                  { num: "5,000+", label: "Rugs Exported / Year" },
+                  { num: "45+", label: "Countries Served" },
+                ].map((stat) => (
+                  <div key={stat.label} style={{ background: "var(--surface)", borderRadius: "var(--radius-lg)", padding: "20px 24px", border: "1px solid var(--border-light)" }}>
+                    <div style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "36px", fontWeight: 300, color: "var(--primary)", lineHeight: 1 }}>{stat.num}</div>
+                    <div style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "4px", fontWeight: 500, letterSpacing: "0.04em" }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              {[
+                { icon: "🏭", title: "3 Production Units", desc: "Dedicated facilities for hand-knotted, hand-tufted, and flat-weave production." },
+                { icon: "🔬", title: "In-House Dye Lab", desc: "Pantone-matched dye baths with D65 lighting verification for colour accuracy." },
+                { icon: "📐", title: "Design Studio", desc: "Full CAD design team converts your ideas into technical weave specifications." },
+                { icon: "📦", title: "Export Department", desc: "Dedicated export team handles all customs, documentation, and freight logistics." },
+                { icon: "🌡️", title: "Climate-Controlled Washing", desc: "Temperature and pH-controlled washing baths protect fibre and colour integrity." },
+                { icon: "🔒", title: "Secure Production", desc: "NDAs and confidentiality agreements standard for all private label clients." },
+              ].map((item) => (
+                <div key={item.title} style={{ padding: "20px", background: "var(--surface)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-lg)", transition: "all 0.25s ease" }}
+                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--border-green)"; el.style.boxShadow = "var(--shadow-sm)"; }}
+                  onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--border-light)"; el.style.boxShadow = "none"; }}>
+                  <div style={{ fontSize: "24px", marginBottom: "8px" }}>{item.icon}</div>
+                  <h4 style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)", marginBottom: "6px" }}>{item.title}</h4>
+                  <p style={{ fontSize: "12px", color: "var(--foreground-muted)", lineHeight: 1.6, fontWeight: 300 }}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          MANUFACTURING CAPACITY
+          ═══════════════════════════════════════════════════════════════ */}
+      <section style={{ padding: "60px 0", background: "var(--primary)" }}>
+        <div className="container">
+          <div style={{ textAlign: "center", marginBottom: "40px" }}>
+            <p style={{ fontSize: "11px", letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--gold-light)", fontWeight: 600, marginBottom: "12px" }}>✦ &nbsp; Production Scale</p>
+            <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 300, color: "#fff", letterSpacing: "-0.02em" }}>
+              Manufacturing Capacity
+            </h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1px", background: "rgba(255,255,255,0.1)", borderRadius: "16px", overflow: "hidden" }}>
+            {[
+              { label: "Hand Knotted", capacity: "50–80 rugs/month", note: "Premium luxury segment" },
+              { label: "Hand Tufted", capacity: "200–300 rugs/month", note: "Commercial & residential" },
+              { label: "Flat Weave / Durrie", capacity: "400–600 pieces/month", note: "High-volume bulk orders" },
+              { label: "Natural Fibre / Jute", capacity: "300–500 pieces/month", note: "Eco & sustainable range" },
+            ].map((cap, i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.06)", padding: "28px 24px", textAlign: "center" }}>
+                <div style={{ fontSize: "11px", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--gold-light)", fontWeight: 600, marginBottom: "10px" }}>{cap.label}</div>
+                <div style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "22px", fontWeight: 500, color: "#fff", marginBottom: "6px" }}>{cap.capacity}</div>
+                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)" }}>{cap.note}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ textAlign: "center", fontSize: "13px", color: "rgba(255,255,255,0.5)", marginTop: "20px" }}>
+            Rush production available for urgent orders. Contact us for specific timelines.
+          </p>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
           TRADE BENEFITS
           ═══════════════════════════════════════════════════════════════ */}
       <section style={{ padding: "80px 0", background: "var(--surface-alt)" }}>
@@ -437,40 +530,82 @@ export default function B2BContent() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          MOQ & PRICING TABLE
+          QUALITY CONTROL
           ═══════════════════════════════════════════════════════════════ */}
       <section style={{ padding: "80px 0", background: "var(--surface-alt)" }}>
+        <div className="container">
+          <div style={{ textAlign: "center", marginBottom: "56px" }}>
+            <p className="eyebrow" style={{ marginBottom: "14px" }}>✦ &nbsp; Our Standards</p>
+            <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 300, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
+              Quality Control Process
+            </h2>
+            <p style={{ color: "var(--foreground-muted)", fontSize: "15px", maxWidth: "520px", margin: "16px auto 0", lineHeight: 1.7 }}>
+              Every rug passes a rigorous 6-stage quality inspection before shipment. Photo updates at every milestone.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
+            {QUALITY_CONTROL.map((qc) => (
+              <div key={qc.title} style={{ display: "flex", gap: "16px", alignItems: "flex-start", padding: "24px", background: "var(--surface)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-lg)", transition: "all 0.25s ease" }}
+                onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--border-green)"; el.style.boxShadow = "var(--shadow-md)"; el.style.transform = "translateY(-3px)"; }}
+                onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "var(--border-light)"; el.style.boxShadow = "none"; el.style.transform = "translateY(0)"; }}>
+                <div style={{ fontSize: "28px", flexShrink: 0, marginTop: "2px" }}>{qc.icon}</div>
+                <div>
+                  <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--foreground)", marginBottom: "6px" }}>{qc.title}</h3>
+                  <p style={{ fontSize: "13px", color: "var(--foreground-muted)", lineHeight: 1.65, fontWeight: 300 }}>{qc.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          MOQ INFORMATION (no public prices — inquiry required)
+          ═══════════════════════════════════════════════════════════════ */}
+      <section style={{ padding: "80px 0", background: "var(--background)" }}>
         <div className="container">
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
             <p className="eyebrow" style={{ marginBottom: "14px" }}>✦ &nbsp; Production Minimums</p>
             <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 300, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
-              MOQ, Lead Times & Pricing
+              MOQ & Lead Times
             </h2>
+            <p style={{ color: "var(--foreground-muted)", fontSize: "15px", maxWidth: "520px", margin: "16px auto 0", lineHeight: 1.7 }}>
+              We offer competitive trade pricing exclusively through direct inquiry. Submit your requirements for a personalised quote.
+            </p>
           </div>
           <div style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "var(--shadow-md)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "var(--primary)" }}>
-                  {["Construction Method", "Min. Order Qty", "Lead Time", "Trade Price (from)"].map((h) => (
+                  {["Construction Method", "Min. Order Qty", "Lead Time", "Pricing"].map((h) => (
                     <th key={h} style={{ padding: "14px 20px", color: "#fff", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "left" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {MOQ_TABLE.map((row, i) => (
+                {MOQ_INFO.map((row, i) => (
                   <tr key={row.construction} style={{ background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)", borderBottom: "1px solid var(--border-light)" }}>
                     <td style={{ padding: "14px 20px", fontWeight: 700, color: "var(--foreground)", fontSize: "14px" }}>{row.construction}</td>
                     <td style={{ padding: "14px 20px", fontSize: "14px", color: "var(--foreground-muted)" }}>{row.moq}</td>
                     <td style={{ padding: "14px 20px", fontSize: "14px", color: "var(--foreground-muted)" }}>{row.leadTime}</td>
-                    <td style={{ padding: "14px 20px", fontSize: "14px", fontWeight: 700, color: "var(--primary)" }}>{row.priceRange}</td>
+                    <td style={{ padding: "14px 20px" }}>
+                      <a href="#b2b-form" style={{ display: "inline-block", padding: "6px 16px", background: "var(--primary-pale)", border: "1px solid var(--border-green)", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}>
+                        Inquire for Pricing →
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div style={{ padding: "16px 20px", background: "var(--primary-pale)", borderTop: "1px solid var(--border-green)" }}>
-              <p style={{ fontSize: "12px", color: "var(--primary)", fontWeight: 500 }}>
-                ✦ All prices are for trade clients. Volume discounts apply for 10+, 50+, and 100+ pieces. Contact us for a personalised quote.
+            <div style={{ padding: "20px 24px", background: "linear-gradient(135deg, var(--primary-pale) 0%, rgba(184,151,90,0.05) 100%)", borderTop: "1px solid var(--border-green)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
+              <p style={{ fontSize: "13px", color: "var(--primary)", fontWeight: 500 }}>
+                ✦ Trade pricing is shared exclusively with registered trade clients after inquiry. Volume discounts apply for 10+, 50+, and 100+ pieces.
               </p>
+              <a href="#b2b-form" style={{ textDecoration: "none" }}>
+                <button style={{ padding: "10px 24px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  Get Trade Pricing →
+                </button>
+              </a>
             </div>
           </div>
         </div>

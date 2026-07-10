@@ -292,34 +292,185 @@ function DashboardSection({ stats, inquiries, products, setSection }: {
   products: Product[];
   setSection: (s: string) => void;
 }) {
-  const statCards = [
-    { label: "Total Products", value: stats.totalProducts, icon: "🧶", color: "#4a5c3a", link: "products" },
-    { label: "Active Products", value: stats.activeProducts, icon: "✅", color: "#059669", link: "products" },
-    { label: "Total Inquiries", value: stats.totalInquiries, icon: "📋", color: "#7a8f6a", link: "inquiries" },
-    { label: "New Inquiries", value: stats.newInquiries, icon: "🔔", color: "#dc2626", link: "inquiries" },
-    { label: "B2B Inquiries", value: stats.b2bInquiries, icon: "🤝", color: "#6b4f35", link: "b2b" },
-  ];
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [analytics, setAnalytics] = useState<Record<string, unknown> | null>(null);
+  const [favorites, setFavorites] = useState<unknown[]>([]);
+  const [reviews, setReviews] = useState<unknown[]>([]);
+  const [analyticsRange, setAnalyticsRange] = useState<"today" | "last7" | "last30" | "last365">("today");
+
+  useEffect(() => {
+    // Fetch orders
+    fetch("/api/admin/data?type=orders", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setOrders(Array.isArray(d) ? d : [])).catch(() => {});
+    // Fetch analytics
+    fetch("/api/analytics", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setAnalytics(d)).catch(() => {});
+    // Fetch favorites
+    fetch("/api/favorites", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setFavorites(Array.isArray(d) ? d : [])).catch(() => {});
+    // Fetch reviews
+    fetch("/api/reviews?all=1", { headers: { "x-admin-key": getAdminKey() } })
+      .then((r) => r.json()).then((d) => setReviews(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Revenue calculations
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const thisMonth = now.toISOString().slice(0, 7);
+
+  const totalRevenue = orders.reduce((s, o) => s + ((o.totalAmount as number) || 0), 0);
+  const todayRevenue = orders.filter((o) => (o.createdAt as string || "").startsWith(todayStr)).reduce((s, o) => s + ((o.totalAmount as number) || 0), 0);
+  const monthlyRevenue = orders.filter((o) => (o.createdAt as string || "").startsWith(thisMonth)).reduce((s, o) => s + ((o.totalAmount as number) || 0), 0);
+
+  // Order status counts
+  const ordersByStatus = {
+    pending: orders.filter((o) => o.status === "pending" || !o.status).length,
+    processing: orders.filter((o) => o.status === "processing").length,
+    production: orders.filter((o) => o.status === "production").length,
+    ready: orders.filter((o) => o.status === "ready").length,
+    dispatched: orders.filter((o) => o.status === "dispatched").length,
+    "in-transit": orders.filter((o) => o.status === "in-transit").length,
+    delivered: orders.filter((o) => o.status === "delivered").length,
+    cancelled: orders.filter((o) => o.status === "cancelled").length,
+  };
+
+  // Analytics data
+  const rangeData = analytics ? ((analytics[analyticsRange] as Record<string, number>) || { views: 0, visitors: 0 }) : { views: 0, visitors: 0 };
+  const totalViews = analytics ? ((analytics.total as Record<string, number>)?.views || 0) : 0;
+  const productViews = analytics ? Object.values((analytics.productViews as Record<string, number>) || {}).reduce((s, v) => s + v, 0) : 0;
+  const daily = analytics ? ((analytics.dailyViews as { date: string; views: number }[]) || []) : [];
+  const maxDailyViews = daily.length > 0 ? Math.max(...daily.map((d) => d.views), 1) : 1;
+
+  // Recent activity (merge orders + inquiries sorted by date)
+  type ActivityItem = { type: string; label: string; sub: string; date: string; color: string; icon: string };
+  const recentActivity: ActivityItem[] = [
+    ...orders.slice(0, 5).map((o) => ({
+      type: "order", icon: "🛍️", color: "#4a5c3a",
+      label: `Order ${o.orderId as string}`,
+      sub: `$${(o.totalAmount as number || 0).toFixed(2)} · ${o.status as string || "pending"}`,
+      date: o.createdAt as string || "",
+    })),
+    ...inquiries.slice(0, 5).map((i) => ({
+      type: "inquiry", icon: "📋", color: "#0369a1",
+      label: `${i.type?.toUpperCase() || "INQUIRY"} – ${i.name || i.companyName || "Anonymous"}`,
+      sub: i.email || i.message?.slice(0, 50) || "",
+      date: i.createdAt || "",
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
+
+  const StatCard = ({ icon, label, value, sub, color, onClick }: { icon: string; label: string; value: string | number; sub?: string; color: string; onClick?: () => void }) => (
+    <button onClick={onClick} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "18px 20px", textAlign: "left", cursor: onClick ? "pointer" : "default", transition: "all 0.2s", width: "100%" }}
+      onMouseEnter={(e) => { if (onClick) { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.08)"; (e.currentTarget as HTMLElement).style.borderColor = color; }}}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb"; }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span style={{ fontSize: "11px", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: "18px" }}>{icon}</span>
+      </div>
+      <div style={{ fontSize: "26px", fontWeight: 800, color, letterSpacing: "-0.02em", margin: "8px 0 2px" }}>{value}</div>
+      {sub && <div style={{ fontSize: "11px", color: "#9ca3af" }}>{sub}</div>}
+    </button>
+  );
 
   return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
-        {statCards.map((c) => (
-          <button key={c.label} onClick={() => setSection(c.link)} style={{
-            background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px",
-            padding: "20px", textAlign: "left", cursor: "pointer", transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.1)"; (e.currentTarget as HTMLElement).style.borderColor = c.color; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb"; }}
-          >
-            <div style={{ fontSize: "24px", marginBottom: "8px" }}>{c.icon}</div>
-            <div style={{ fontSize: "28px", fontWeight: 700, color: c.color, letterSpacing: "-0.02em" }}>{c.value}</div>
-            <div style={{ fontSize: "12px", color: "#5c5a52", marginTop: "4px" }}>{c.label}</div>
-          </button>
-        ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+
+      {/* ── Revenue Row ── */}
+      <div>
+        <h2 style={{ fontSize: "13px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>Revenue</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <StatCard icon="💰" label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} color="#4a5c3a" onClick={() => setSection("orders")} />
+          <StatCard icon="📅" label="Today's Revenue" value={`$${todayRevenue.toFixed(2)}`} color="#059669" onClick={() => setSection("orders")} />
+          <StatCard icon="📆" label="Monthly Revenue" value={`$${monthlyRevenue.toFixed(2)}`} color="#0369a1" onClick={() => setSection("orders")} />
+        </div>
       </div>
 
-      {/* Recent Inquiries */}
-      <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px", marginBottom: "24px" }}>
+      {/* ── Orders Row ── */}
+      <div>
+        <h2 style={{ fontSize: "13px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>Orders</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+          <StatCard icon="🛍️" label="Total Orders" value={orders.length} color="#4a5c3a" onClick={() => setSection("orders")} />
+          <StatCard icon="⏳" label="Pending" value={ordersByStatus.pending} color="#d97706" onClick={() => setSection("orders")} />
+          <StatCard icon="⚙️" label="Processing" value={ordersByStatus.processing + ordersByStatus.production + ordersByStatus.ready} sub="Processing + Production + Ready" color="#0369a1" onClick={() => setSection("orders")} />
+          <StatCard icon="✅" label="Delivered" value={ordersByStatus.delivered} color="#059669" onClick={() => setSection("orders")} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginTop: "12px" }}>
+          <StatCard icon="🚚" label="Dispatched" value={ordersByStatus.dispatched + ordersByStatus["in-transit"]} sub="Dispatched + In Transit" color="#7c3aed" onClick={() => setSection("orders")} />
+          <StatCard icon="❌" label="Cancelled" value={ordersByStatus.cancelled} color="#dc2626" onClick={() => setSection("orders")} />
+          <StatCard icon="🧶" label="Total Products" value={stats.totalProducts} color="#4a5c3a" onClick={() => setSection("products")} />
+          <StatCard icon="✅" label="Active Products" value={stats.activeProducts} color="#059669" onClick={() => setSection("products")} />
+        </div>
+      </div>
+
+      {/* ── Analytics Row ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <h2 style={{ fontSize: "13px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Analytics</h2>
+          <div style={{ display: "flex", gap: "6px" }}>
+            {(["today", "last7", "last30", "last365"] as const).map((r) => (
+              <button key={r} onClick={() => setAnalyticsRange(r)} style={{ padding: "5px 10px", borderRadius: "6px", border: "1.5px solid", cursor: "pointer", fontSize: "11px", fontWeight: 600, background: analyticsRange === r ? "#4a5c3a" : "#fff", color: analyticsRange === r ? "#fff" : "#4a5c3a", borderColor: analyticsRange === r ? "#4a5c3a" : "#c8d4b8" }}>
+                {r === "today" ? "Today" : r === "last7" ? "7d" : r === "last30" ? "30d" : "12mo"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "12px" }}>
+          <StatCard icon="👁" label="Page Views" value={rangeData.views || 0} color="#0369a1" onClick={() => setSection("analytics")} />
+          <StatCard icon="👤" label="Visitors" value={rangeData.visitors || 0} color="#7c3aed" onClick={() => setSection("analytics")} />
+          <StatCard icon="📊" label="Total Views" value={totalViews} color="#4a5c3a" onClick={() => setSection("analytics")} />
+          <StatCard icon="🏷️" label="Product Views" value={productViews} color="#d97706" onClick={() => setSection("analytics")} />
+        </div>
+
+        {/* Mini bar chart */}
+        {daily.length > 0 && (
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "20px" }}>
+            <p style={{ fontSize: "12px", fontWeight: 700, color: "#6b7280", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Daily Views — Last 30 Days</p>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "60px" }}>
+              {daily.slice(-30).map((d, i) => (
+                <div key={i} title={`${d.date}: ${d.views}`} style={{ flex: 1, background: "#4a5c3a", borderRadius: "2px 2px 0 0", height: `${Math.max(4, (d.views / maxDailyViews) * 100)}%`, opacity: 0.6 + (d.views / maxDailyViews) * 0.4 }} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Inquiries / Favorites / Reviews Row ── */}
+      <div>
+        <h2 style={{ fontSize: "13px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>Engagement</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <StatCard icon="📋" label="Customer Inquiries" value={stats.totalInquiries} sub={`${stats.newInquiries} new`} color="#4a5c3a" onClick={() => setSection("inquiries")} />
+          <StatCard icon="❤️" label="Favorites" value={favorites.length} color="#dc2626" onClick={() => setSection("favorites")} />
+          <StatCard icon="⭐" label="Reviews" value={reviews.length} color="#d97706" onClick={() => setSection("reviews")} />
+        </div>
+      </div>
+
+      {/* ── Recent Activity Feed ── */}
+      <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1c1c1a" }}>Recent Activity</h2>
+          <button onClick={() => setSection("activity")} style={{ background: "none", border: "none", color: "#4a5c3a", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>View all →</button>
+        </div>
+        {recentActivity.length === 0 ? (
+          <p style={{ color: "#9ca3af", fontSize: "14px", textAlign: "center", padding: "20px 0" }}>No activity yet.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+            {recentActivity.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 0", borderBottom: i < recentActivity.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: item.color + "15", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>{item.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, fontSize: "13px", color: "#1c1c1a", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</p>
+                  <p style={{ fontSize: "12px", color: "#6b7280", margin: "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.sub}</p>
+                </div>
+                <div style={{ fontSize: "11px", color: "#9ca3af", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {item.date ? new Date(item.date).toLocaleDateString() : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Recent Inquiries ── */}
+      <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1c1c1a" }}>Recent Inquiries</h2>
           <button onClick={() => setSection("inquiries")} style={{ background: "none", border: "none", color: "#4a5c3a", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>View all →</button>
@@ -327,7 +478,7 @@ function DashboardSection({ stats, inquiries, products, setSection }: {
         <InquiryTable inquiries={inquiries.slice(0, 5)} onRefresh={() => {}} compact />
       </div>
 
-      {/* Recent Products */}
+      {/* ── Recent Products ── */}
       <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1c1c1a" }}>Products ({products.length})</h2>
@@ -2731,11 +2882,22 @@ function OrdersSection() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editFields, setEditFields] = useState<{
+    status: string; adminNotes: string; courierCompany: string;
+    trackingNumber: string; dispatchDate: string; estimatedDelivery: string; deliveredDate: string;
+  } | null>(null);
 
-  const STATUS_OPTIONS = ["all", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+  const ALL_STATUSES = ["pending", "processing", "production", "ready", "dispatched", "in-transit", "delivered", "cancelled"];
   const STATUS_COLORS: Record<string, string> = {
-    confirmed: "#16a34a", processing: "#0369a1", shipped: "#7c3aed",
-    delivered: "#059669", cancelled: "#dc2626", pending: "#d97706",
+    pending: "#d97706", processing: "#0369a1", production: "#7c3aed",
+    ready: "#059669", dispatched: "#0891b2", "in-transit": "#6366f1",
+    delivered: "#16a34a", cancelled: "#dc2626",
+  };
+  const STATUS_LABELS: Record<string, string> = {
+    pending: "Pending", processing: "Processing", production: "Production",
+    ready: "Ready", dispatched: "Dispatched", "in-transit": "In Transit",
+    delivered: "Delivered", cancelled: "Cancelled",
   };
 
   useEffect(() => {
@@ -2747,31 +2909,61 @@ function OrdersSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    await fetch("/api/admin/data", {
-      method: "PUT",
-      headers: { ...adminHeaders() },
-      body: JSON.stringify({ type: "orders", id: orderId, status }),
-    }).catch(() => {});
-    setOrders((prev) => prev.map((o) => (o.id === orderId || o.orderId === orderId) ? { ...o, status } : o));
-    if (selected && (selected.orderId === orderId || selected.id === orderId)) {
-      setSelected((s) => s ? { ...s, status } : s);
-    }
+  const openOrder = (o: Record<string, unknown>) => {
+    setSelected(o);
+    setEditFields({
+      status: (o.status as string) || "pending",
+      adminNotes: (o.adminNotes as string) || "",
+      courierCompany: (o.courierCompany as string) || "",
+      trackingNumber: (o.trackingNumber as string) || "",
+      dispatchDate: (o.dispatchDate as string) || "",
+      estimatedDelivery: (o.estimatedDelivery as string) || "",
+      deliveredDate: (o.deliveredDate as string) || "",
+    });
+  };
+
+  const saveOrder = async () => {
+    if (!selected || !editFields) return;
+    setSaving(true);
+    const orderId = selected.orderId as string;
+    try {
+      const res = await fetch("/api/admin/data", {
+        method: "PUT",
+        headers: adminHeaders(),
+        body: JSON.stringify({ orderId, ...editFields }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const updated = { ...selected, ...editFields, updatedAt: new Date().toISOString() };
+        setOrders((prev) => prev.map((o) => o.orderId === orderId ? updated : o));
+        setSelected(updated);
+      }
+    } catch {}
+    setSaving(false);
   };
 
   const exportCSV = () => {
-    const headers = ["Order ID", "Customer", "Email", "Total", "Status", "Payment Method", "Date", "Items"];
-    const rows = filtered.map((o) => [
-      o.orderId as string,
-      `${(o.customer as Record<string, string>)?.firstName || ""} ${(o.customer as Record<string, string>)?.lastName || ""}`.trim(),
-      (o.customer as Record<string, string>)?.email || "",
-      `$${o.totalAmount || 0}`,
-      o.status as string || "",
-      o.paymentMethod as string || "PayPal",
-      new Date(o.createdAt as string).toLocaleDateString(),
-      Array.isArray(o.items) ? (o.items as { productTitle: string; quantity: number }[]).map((i) => `${i.productTitle} x${i.quantity}`).join("; ") : "",
-    ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const headers = ["Order ID", "Customer", "Email", "Phone", "Total", "Status", "Payment", "Date", "Courier", "Tracking", "Dispatch Date", "Est. Delivery", "Delivered Date"];
+    const rows = filtered.map((o) => {
+      const customer = o.customer as Record<string, string> || {};
+      const shipping = o.shippingAddress as Record<string, string> || {};
+      return [
+        o.orderId as string,
+        `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+        customer.email || "",
+        customer.phone || shipping.phone || "",
+        `$${o.totalAmount || 0}`,
+        o.status as string || "pending",
+        o.paymentMethod as string || "PayPal",
+        new Date(o.createdAt as string).toLocaleDateString(),
+        o.courierCompany as string || "",
+        o.trackingNumber as string || "",
+        o.dispatchDate as string || "",
+        o.estimatedDelivery as string || "",
+        o.deliveredDate as string || "",
+      ];
+    });
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
@@ -2781,44 +2973,78 @@ function OrdersSection() {
     const customer = o.customer as Record<string, string> || {};
     const matchSearch = !q || (o.orderId as string || "").toLowerCase().includes(q) ||
       (customer.email || "").toLowerCase().includes(q) || (customer.firstName || "").toLowerCase().includes(q) ||
-      (customer.lastName || "").toLowerCase().includes(q);
+      (customer.lastName || "").toLowerCase().includes(q) || (o.trackingNumber as string || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "all" || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const totalRevenue = orders.reduce((s, o) => s + ((o.totalAmount as number) || 0), 0);
 
-  if (selected) {
+  // ── Order Detail View ──────────────────────────────────────────────
+  if (selected && editFields) {
     const o = selected;
     const customer = o.customer as Record<string, string> || {};
     const shipping = o.shippingAddress as Record<string, string> || {};
     const items = o.items as { productTitle: string; sizeLabel: string; quantity: number; unitPrice: number; lineTotal: number; construction: string }[] || [];
+
+    const inputSt: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "1.5px solid #dcd4c5", borderRadius: "6px", fontSize: "13px", outline: "none", boxSizing: "border-box" };
+    const labelSt: React.CSSProperties = { display: "block", fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9ca3af", marginBottom: "4px" };
+
     return (
       <div>
-        <button onClick={() => setSelected(null)} style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", color: "#4a5c3a", fontWeight: 600, fontSize: "14px" }}>
+        <button onClick={() => { setSelected(null); setEditFields(null); }} style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", cursor: "pointer", color: "#4a5c3a", fontWeight: 600, fontSize: "14px" }}>
           ← Back to Orders
         </button>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "24px" }}>
-          <div>
-            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px", marginBottom: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "24px" }}>
+
+          {/* Left: Order items + status workflow */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+            {/* Order Header */}
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                  <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#1c1c1a" }}>{o.orderId as string}</h2>
-                  <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>{new Date(o.createdAt as string).toLocaleString()}</p>
+                  <p style={{ fontSize: "11px", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>Order ID</p>
+                  <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#1c1c1a", fontFamily: "monospace" }}>{o.orderId as string}</h2>
+                  <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>Placed: {new Date(o.createdAt as string).toLocaleString()}</p>
+                  {(o.updatedAt as string) && <p style={{ fontSize: "11px", color: "#9ca3af" }}>Updated: {new Date(o.updatedAt as string).toLocaleString()}</p>}
                 </div>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <select value={o.status as string || "confirmed"} onChange={(e) => updateOrderStatus(o.orderId as string, e.target.value)}
-                    style={{ padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #dcd4c5", fontSize: "13px", cursor: "pointer" }}>
-                    {STATUS_OPTIONS.filter((s) => s !== "all").map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                  </select>
-                  <span style={{ padding: "6px 14px", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, background: (STATUS_COLORS[o.status as string] || "#6b7280") + "20", color: STATUS_COLORS[o.status as string] || "#6b7280" }}>
-                    {(o.status as string || "confirmed").toUpperCase()}
-                  </span>
+                <span style={{ padding: "8px 18px", borderRadius: "9999px", fontSize: "13px", fontWeight: 700, background: (STATUS_COLORS[editFields.status] || "#6b7280") + "20", color: STATUS_COLORS[editFields.status] || "#6b7280" }}>
+                  {STATUS_LABELS[editFields.status] || editFields.status}
+                </span>
+              </div>
+
+              {/* 7-step status workflow */}
+              <div style={{ marginBottom: "8px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>Update Order Status</p>
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {ALL_STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setEditFields((f) => f ? { ...f, status: s } : f)}
+                      style={{
+                        padding: "7px 14px", borderRadius: "9999px", border: `1.5px solid ${editFields.status === s ? STATUS_COLORS[s] : "#e5e7eb"}`,
+                        background: editFields.status === s ? STATUS_COLORS[s] + "20" : "#fff",
+                        color: editFields.status === s ? STATUS_COLORS[s] : "#6b7280",
+                        fontSize: "11px", fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {STATUS_LABELS[s]}
+                    </button>
+                  ))}
                 </div>
               </div>
+            </div>
+
+            {/* Order Items */}
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "16px" }}>Ordered Products</h3>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr style={{ background: "#f9fafb" }}>
-                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Product</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase" }}>Product</th>
                   <th style={{ padding: "10px 12px", textAlign: "center", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase" }}>Qty</th>
                   <th style={{ padding: "10px 12px", textAlign: "right", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase" }}>Total</th>
                 </tr></thead>
@@ -2833,34 +3059,97 @@ function OrdersSection() {
                   </tr>
                 ))}</tbody>
                 <tfoot><tr style={{ borderTop: "2px solid #e5e7eb" }}>
-                  <td colSpan={2} style={{ padding: "12px", fontWeight: 700, textAlign: "right" }}>Order Total</td>
-                  <td style={{ padding: "12px", fontWeight: 800, fontSize: "18px", textAlign: "right", color: "#4a5c3a" }}>${(o.totalAmount as number)?.toFixed(2)}</td>
+                  <td colSpan={2} style={{ padding: "12px", fontWeight: 700, textAlign: "right", fontSize: "14px" }}>Order Total</td>
+                  <td style={{ padding: "12px", fontWeight: 800, fontSize: "20px", textAlign: "right", color: "#4a5c3a" }}>${(o.totalAmount as number)?.toFixed(2)}</td>
                 </tr></tfoot>
               </table>
             </div>
+
+            {/* Shipping / Tracking — editable */}
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "16px" }}>Shipping & Tracking</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div>
+                  <label style={labelSt}>Courier Company</label>
+                  <input value={editFields.courierCompany} onChange={(e) => setEditFields((f) => f ? { ...f, courierCompany: e.target.value } : f)} style={inputSt} placeholder="e.g. FedEx, DHL, UPS" />
+                </div>
+                <div>
+                  <label style={labelSt}>Tracking Number</label>
+                  <input value={editFields.trackingNumber} onChange={(e) => setEditFields((f) => f ? { ...f, trackingNumber: e.target.value } : f)} style={inputSt} placeholder="e.g. 1Z999AA1..." />
+                </div>
+                <div>
+                  <label style={labelSt}>Dispatch Date</label>
+                  <input type="date" value={editFields.dispatchDate} onChange={(e) => setEditFields((f) => f ? { ...f, dispatchDate: e.target.value } : f)} style={inputSt} />
+                </div>
+                <div>
+                  <label style={labelSt}>Estimated Delivery</label>
+                  <input type="date" value={editFields.estimatedDelivery} onChange={(e) => setEditFields((f) => f ? { ...f, estimatedDelivery: e.target.value } : f)} style={inputSt} />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelSt}>Delivered Date</label>
+                  <input type="date" value={editFields.deliveredDate} onChange={(e) => setEditFields((f) => f ? { ...f, deliveredDate: e.target.value } : f)} style={inputSt} />
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Notes */}
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+              <label style={labelSt}>Admin Notes (Internal)</label>
+              <textarea rows={3} value={editFields.adminNotes} onChange={(e) => setEditFields((f) => f ? { ...f, adminNotes: e.target.value } : f)}
+                placeholder="Internal notes about this order…" style={{ ...inputSt, resize: "vertical", fontFamily: "inherit", width: "100%", marginTop: "4px" }} />
+            </div>
+
+            {/* Save Button */}
+            <button onClick={saveOrder} disabled={saving} style={{ padding: "15px 32px", background: "#4a5c3a", color: "#fff", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+              {saving ? "Saving…" : "💾 Save Changes"}
+            </button>
           </div>
+
+          {/* Right: Customer info sidebar */}
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Customer */}
             <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
               <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Customer</h3>
               <p style={{ fontWeight: 600, color: "#1c1c1a", marginBottom: "4px" }}>{customer.firstName} {customer.lastName}</p>
-              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>{customer.email}</p>
-              <p style={{ fontSize: "13px", color: "#6b7280" }}>{customer.phone}</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>📧 {customer.email}</p>
+              <p style={{ fontSize: "13px", color: "#6b7280" }}>📞 {customer.phone || "—"}</p>
             </div>
+
+            {/* Shipping Address */}
             <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
               <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Shipping Address</h3>
-              <p style={{ fontSize: "13px", color: "#1c1c1a", lineHeight: 1.8 }}>{shipping.address}<br />{shipping.city} {shipping.postalCode}<br />{shipping.country}</p>
+              <p style={{ fontSize: "13px", color: "#1c1c1a", lineHeight: 1.9 }}>
+                {shipping.address || "—"}<br />
+                {shipping.city || ""} {shipping.postalCode || ""}<br />
+                {shipping.country || ""}
+              </p>
             </div>
+
+            {/* Payment */}
             <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "20px" }}>
               <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: "12px" }}>Payment</h3>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#16a34a" }}>✓ {o.paymentMethod as string || "PayPal"}</p>
-              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>TXN: {o.paypalTransactionId as string}</p>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "#16a34a", marginBottom: "4px" }}>✓ {o.paymentMethod as string || "PayPal"}</p>
+              <p style={{ fontSize: "11px", color: "#9ca3af" }}>TXN: {(o.paypalTransactionId as string) || (o.paymentId as string) || "—"}</p>
             </div>
+
+            {/* Tracking summary */}
+            {(editFields.trackingNumber || editFields.courierCompany) && (
+              <div style={{ background: "#f0fdf4", borderRadius: "12px", border: "1px solid #86efac", padding: "20px" }}>
+                <h3 style={{ fontSize: "13px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#166534", marginBottom: "12px" }}>Tracking Info</h3>
+                {editFields.courierCompany && <p style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>🚚 {editFields.courierCompany}</p>}
+                {editFields.trackingNumber && <p style={{ fontSize: "13px", color: "#166534", fontFamily: "monospace", fontWeight: 700, marginBottom: "4px" }}>{editFields.trackingNumber}</p>}
+                {editFields.dispatchDate && <p style={{ fontSize: "12px", color: "#4ade80" }}>Dispatched: {editFields.dispatchDate}</p>}
+                {editFields.estimatedDelivery && <p style={{ fontSize: "12px", color: "#4ade80" }}>Est. Delivery: {editFields.estimatedDelivery}</p>}
+                {editFields.deliveredDate && <p style={{ fontSize: "12px", color: "#4ade80", fontWeight: 700 }}>✅ Delivered: {editFields.deliveredDate}</p>}
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // ── Orders List View ───────────────────────────────────────────────
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
@@ -2874,27 +3163,28 @@ function OrdersSection() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "20px" }}>
         {[
-          { label: "Total Orders", value: orders.length, color: "#4a5c3a" },
-          { label: "Revenue", value: `$${totalRevenue.toFixed(0)}`, color: "#0369a1" },
-          { label: "Confirmed", value: orders.filter((o) => o.status === "confirmed" || !o.status).length, color: "#16a34a" },
-          { label: "Shipped", value: orders.filter((o) => o.status === "shipped" || o.status === "delivered").length, color: "#7c3aed" },
+          { label: "Total", value: orders.length, color: "#4a5c3a" },
+          { label: "Pending", value: orders.filter((o) => o.status === "pending" || !o.status).length, color: "#d97706" },
+          { label: "In Progress", value: orders.filter((o) => ["processing","production","ready","dispatched","in-transit"].includes(o.status as string)).length, color: "#0369a1" },
+          { label: "Delivered", value: orders.filter((o) => o.status === "delivered").length, color: "#16a34a" },
         ].map((s, i) => (
-          <div key={i} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+          <div key={i} style={{ background: "#fff", borderRadius: "10px", border: "1px solid #e5e7eb", padding: "16px 18px" }}>
             <p style={{ fontSize: "11px", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
-            <p style={{ fontSize: "24px", fontWeight: 800, color: s.color, margin: "6px 0 0" }}>{s.value}</p>
+            <p style={{ fontSize: "22px", fontWeight: 800, color: s.color, margin: "4px 0 0" }}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by order ID, email, or name…"
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by order ID, email, name, or tracking…"
           style={{ flex: 1, minWidth: "220px", padding: "10px 14px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "14px", outline: "none" }} />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
           style={{ padding: "10px 14px", border: "1.5px solid #dcd4c5", borderRadius: "8px", fontSize: "14px", cursor: "pointer" }}>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s === "all" ? "All Statuses" : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+          <option value="all">All Statuses</option>
+          {ALL_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
       </div>
 
@@ -2904,13 +3194,13 @@ function OrdersSection() {
           <div style={{ textAlign: "center", padding: "60px", color: "#9ca3af" }}>
             <div style={{ fontSize: "48px", marginBottom: "16px" }}>🛍️</div>
             <p style={{ fontSize: "16px", fontWeight: 600 }}>No orders yet</p>
-            <p style={{ fontSize: "13px" }}>Orders will appear here after customers complete payment.</p>
+            <p style={{ fontSize: "13px" }}>Orders appear after customers complete payment.</p>
           </div>
         ) : (
           <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9fafb" }}>
-                {["Order ID", "Customer", "Items", "Total", "Payment", "Status", "Date", ""].map((h, i) => (
+                {["Order ID", "Customer", "Products", "Total", "Payment", "Status", "Tracking", "Date", ""].map((h, i) => (
                   <th key={i} style={{ padding: "12px 14px", textAlign: "left", fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr></thead>
@@ -2918,32 +3208,37 @@ function OrdersSection() {
                 {filtered.map((o, i) => {
                   const customer = o.customer as Record<string, string> || {};
                   const items = o.items as { productTitle: string; quantity: number }[] || [];
-                  const status = (o.status as string) || "confirmed";
+                  const status = (o.status as string) || "pending";
                   return (
                     <tr key={i} style={{ borderBottom: "1px solid #f3f4f6", cursor: "pointer", transition: "background 0.15s" }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      onClick={() => setSelected(o)}>
-                      <td style={{ padding: "14px", fontFamily: "monospace", fontSize: "13px", fontWeight: 700, color: "#4a5c3a" }}>{o.orderId as string}</td>
+                      onClick={() => openOrder(o)}>
+                      <td style={{ padding: "14px", fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: "#4a5c3a" }}>{o.orderId as string}</td>
                       <td style={{ padding: "14px" }}>
-                        <p style={{ fontWeight: 600, fontSize: "14px", color: "#1c1c1a", margin: 0 }}>{customer.firstName} {customer.lastName}</p>
-                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>{customer.email}</p>
+                        <p style={{ fontWeight: 600, fontSize: "13px", color: "#1c1c1a", margin: 0 }}>{customer.firstName} {customer.lastName}</p>
+                        <p style={{ fontSize: "11px", color: "#6b7280", margin: 0 }}>{customer.email}</p>
                       </td>
-                      <td style={{ padding: "14px", fontSize: "13px", color: "#6b7280" }}>
-                        {items.length > 0 ? `${items[0].productTitle}${items.length > 1 ? ` +${items.length - 1}` : ""}` : "–"}
+                      <td style={{ padding: "14px", fontSize: "12px", color: "#6b7280" }}>
+                        {items.length > 0 ? `${items[0].productTitle?.slice(0, 20)}${items.length > 1 ? ` +${items.length - 1}` : ""}` : "–"}
                       </td>
-                      <td style={{ padding: "14px", fontWeight: 700, color: "#1c1c1a" }}>${(o.totalAmount as number)?.toFixed(2) || "0.00"}</td>
+                      <td style={{ padding: "14px", fontWeight: 700, color: "#1c1c1a", fontSize: "13px" }}>${(o.totalAmount as number)?.toFixed(2) || "0.00"}</td>
                       <td style={{ padding: "14px", fontSize: "12px", color: "#6b7280" }}>{o.paymentMethod as string || "PayPal"}</td>
                       <td style={{ padding: "14px" }}>
-                        <span style={{ padding: "4px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: 700, background: (STATUS_COLORS[status] || "#6b7280") + "20", color: STATUS_COLORS[status] || "#6b7280" }}>
-                          {status.toUpperCase()}
+                        <span style={{ padding: "4px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: 700, background: (STATUS_COLORS[status] || "#6b7280") + "20", color: STATUS_COLORS[status] || "#6b7280", whiteSpace: "nowrap" }}>
+                          {STATUS_LABELS[status] || status}
                         </span>
                       </td>
-                      <td style={{ padding: "14px", fontSize: "12px", color: "#6b7280", whiteSpace: "nowrap" }}>
-                        {new Date(o.createdAt as string).toLocaleDateString()}
+                      <td style={{ padding: "14px", fontSize: "11px", color: "#6b7280", fontFamily: "monospace" }}>
+                        {(o.trackingNumber as string) ? (
+                          <span style={{ color: "#059669", fontWeight: 600 }}>{(o.trackingNumber as string).slice(0, 16)}</span>
+                        ) : "—"}
+                      </td>
+                      <td style={{ padding: "14px", fontSize: "11px", color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {o.createdAt ? new Date(o.createdAt as string).toLocaleDateString() : "—"}
                       </td>
                       <td style={{ padding: "14px" }}>
-                        <button onClick={(e) => { e.stopPropagation(); setSelected(o); }}
+                        <button onClick={(e) => { e.stopPropagation(); openOrder(o); }}
                           style={{ padding: "6px 12px", background: "#f0f4e8", border: "1px solid #c8d4b8", borderRadius: "6px", cursor: "pointer", fontSize: "12px", color: "#4a5c3a", fontWeight: 600 }}>
                           View
                         </button>
