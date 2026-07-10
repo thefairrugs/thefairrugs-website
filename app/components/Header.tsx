@@ -14,6 +14,7 @@ const navLinks = [
   { href: "/about", label: "Our Story" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
+  { href: "/order-tracking", label: "Track Order" },
 ];
 
 const WA_URL = "https://wa.me/918416919470?text=Hello%2C%20I%27m%20interested%20in%20your%20luxury%20handmade%20rugs.";

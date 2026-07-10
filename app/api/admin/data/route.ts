@@ -72,7 +72,14 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { orderId, status, adminNotes } = body as { orderId: string; status: string; adminNotes?: string };
+  const {
+    orderId, status, adminNotes,
+    courierCompany, trackingNumber, dispatchDate, estimatedDelivery, deliveredDate,
+  } = body as {
+    orderId: string; status?: string; adminNotes?: string;
+    courierCompany?: string; trackingNumber?: string;
+    dispatchDate?: string; estimatedDelivery?: string; deliveredDate?: string;
+  };
 
   if (!orderId) {
     return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
@@ -99,6 +106,11 @@ export async function PUT(req: NextRequest) {
     ...orders[idx],
     ...(status !== undefined ? { status } : {}),
     ...(adminNotes !== undefined ? { adminNotes } : {}),
+    ...(courierCompany !== undefined ? { courierCompany } : {}),
+    ...(trackingNumber !== undefined ? { trackingNumber } : {}),
+    ...(dispatchDate !== undefined ? { dispatchDate } : {}),
+    ...(estimatedDelivery !== undefined ? { estimatedDelivery } : {}),
+    ...(deliveredDate !== undefined ? { deliveredDate } : {}),
     updatedAt: new Date().toISOString(),
   };
 
