@@ -402,6 +402,12 @@ export async function POST(req: NextRequest) {
     const captureData = await captureRes.json() as {
       id: string;
       status: string;
+      payment_source?: {
+        paypal?:       Record<string, unknown>;
+        card?:         { last_digits?: string; brand?: string; type?: string };
+        apple_pay?:    Record<string, unknown>;
+        google_pay?:   Record<string, unknown>;
+      };
       purchase_units?: Array<{
         payments?: {
           captures?: Array<{
@@ -422,13 +428,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract transaction details from capture response
-    const captureUnit = captureData.purchase_units?.[0];
-    const capture = captureUnit?.payments?.captures?.[0];
+    const captureUnit   = captureData.purchase_units?.[0];
+    const capture       = captureUnit?.payments?.captures?.[0];
     const transactionId = capture?.id || captureData.id;
     const capturedAmount = parseFloat(capture?.amount?.value || String(subtotal));
-    const currency = capture?.amount?.currency_code || "USD";
+    const currency      = capture?.amount?.currency_code || "USD";
 
-    console.log("[PayPal] Payment captured:", transactionId, "amount:", capturedAmount, currency);
+    // Detect actual payment source (paypal wallet, card, apple_pay, google_pay)
+    const paymentSource = captureData.payment_source;
+    let paymentMethod = "PayPal";
+    if (paymentSource?.card) {
+      const brand = paymentSource.card.brand ?? "";
+      const last  = paymentSource.card.last_digits ?? "";
+      paymentMethod = `Card${brand ? " (" + brand + ")" : ""}${last ? " ·" + last : ""}`;
+    } else if (paymentSource?.apple_pay)  { paymentMethod = "Apple Pay"; }
+    else if (paymentSource?.google_pay)   { paymentMethod = "Google Pay"; }
+    else if (paymentSource?.paypal)       { paymentMethod = "PayPal"; }
+
+    console.log("[PayPal] Payment captured:", transactionId, "method:", paymentMethod, "amount:", capturedAmount, currency);
 
     // ── Generate unique order ID ───────────────────────────────────────────────
     const orderId = generateOrderId();
@@ -439,7 +456,7 @@ export async function POST(req: NextRequest) {
       paypalOrderId: orderID,
       paypalTransactionId: transactionId,
       paymentStatus: "COMPLETED",
-      paymentMethod: "PayPal",
+      paymentMethod,  // "PayPal" | "Card (VISA) ·4242" | "Apple Pay" | etc.
       currency,
       totalAmount: capturedAmount,
       customer: {
@@ -502,6 +519,7 @@ export async function POST(req: NextRequest) {
       transactionId,
       amount: capturedAmount,
       currency,
+      paymentMethod,   // "PayPal" | "Card (VISA) ·4242" | "Apple Pay" | "Google Pay"
     });
   } catch (err) {
     console.error("[PayPal] capture-order error:", err);
