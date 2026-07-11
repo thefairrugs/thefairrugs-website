@@ -154,28 +154,8 @@ export default function CustomRugContent() {
   };
 
   return (
-    <section style={{ background: "var(--foreground)", minHeight: "100vh", padding: "64px 0 100px" }}>
+    <section style={{ background: "var(--foreground)", minHeight: "100vh", padding: "40px 0 100px" }}>
       <div className="container" style={{ maxWidth: "860px" }}>
-
-        {/* ── Compact Hero ─────────────────────────────────────────────── */}
-        <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <p style={{
-            fontSize: "11px", letterSpacing: "0.25em", textTransform: "uppercase",
-            color: "var(--gold)", fontWeight: 600, marginBottom: "14px",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-          }}>
-            <span style={{ width: "28px", height: "1px", background: "var(--gold)", display: "inline-block" }} />
-            ✦ Bespoke Service · Jaipur, India
-            <span style={{ width: "28px", height: "1px", background: "var(--gold)", display: "inline-block" }} />
-          </p>
-          <h1 style={{
-            fontFamily: "var(--font-cormorant), Georgia, serif",
-            fontSize: "clamp(36px, 5.5vw, 60px)", fontWeight: 300,
-            color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.1, marginBottom: "0",
-          }}>
-            Build Your <em style={{ fontStyle: "italic", color: "var(--gold-light)" }}>Perfect Rug</em>
-          </h1>
-        </div>
 
         {/* ── Success state ─────────────────────────────────────────────── */}
         {submitted ? (
