@@ -129,48 +129,25 @@ export default function CustomRugContent() {
 
   const priceEstimate = getPriceRange(form.rugType, form.size);
 
-  const inputSt: React.CSSProperties = {
-    width: "100%", padding: "11px 14px", border: "1.5px solid rgba(255,255,255,0.15)",
-    borderRadius: "8px", fontSize: "14px", outline: "none", color: "#fff",
-    background: "rgba(255,255,255,0.07)", boxSizing: "border-box",
-  };
-  const labelSt: React.CSSProperties = {
-    display: "block", fontSize: "11px", fontWeight: 700,
-    letterSpacing: "0.08em", textTransform: "uppercase",
-    color: "rgba(255,255,255,0.5)", marginBottom: "6px",
-  };
-  const selectSt: React.CSSProperties = { ...inputSt, cursor: "pointer" };
-  const tabActiveStyle: React.CSSProperties = {
-    background: "rgba(201,169,110,0.25)", color: "var(--gold-light)",
-    border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer",
-    letterSpacing: "0.05em", padding: "10px 20px", borderRadius: "8px",
-    transition: "all 0.2s ease",
-  };
-  const tabInactiveStyle: React.CSSProperties = {
-    background: "transparent", color: "rgba(255,255,255,0.45)",
-    border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer",
-    letterSpacing: "0.05em", padding: "10px 20px", borderRadius: "8px",
-    transition: "all 0.2s ease",
-  };
-
   return (
-    <section style={{ background: "var(--foreground)", minHeight: "100vh", padding: "40px 0 100px" }}>
+    <div style={{ background: "var(--background)", padding: "40px 0 100px" }}>
       <div className="container" style={{ maxWidth: "860px" }}>
 
         {/* ── Success state ─────────────────────────────────────────────── */}
         {submitted ? (
           <div style={{
-            background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(201,169,110,0.3)",
+            background: "var(--surface)", border: "1.5px solid var(--border-green)",
             borderRadius: "var(--radius-xl)", padding: "60px 40px", textAlign: "center",
+            boxShadow: "var(--shadow-lg)",
           }}>
             <div style={{ fontSize: "56px", marginBottom: "20px" }}>✅</div>
             <h3 style={{
               fontFamily: "var(--font-cormorant), Georgia, serif",
-              fontSize: "32px", fontWeight: 300, color: "#fff", marginBottom: "16px",
+              fontSize: "32px", fontWeight: 300, color: "var(--foreground)", marginBottom: "16px",
             }}>
               Request Received!
             </h3>
-            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "15px", lineHeight: 1.8, maxWidth: "400px", margin: "0 auto 32px" }}>
+            <p style={{ color: "var(--foreground-muted)", fontSize: "15px", lineHeight: 1.8, maxWidth: "400px", margin: "0 auto 32px" }}>
               Our design team will contact you within 24 hours with a personalised quote and design proposal.
             </p>
             <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
@@ -189,8 +166,8 @@ export default function CustomRugContent() {
               <button
                 onClick={() => setSubmitted(false)}
                 style={{
-                  background: "transparent", color: "rgba(255,255,255,0.6)",
-                  border: "1.5px solid rgba(255,255,255,0.2)",
+                  background: "transparent", color: "var(--foreground-muted)",
+                  border: "1.5px solid var(--border)",
                   padding: "13px 28px", borderRadius: "9999px", fontSize: "12px", cursor: "pointer",
                 }}
               >
@@ -201,18 +178,19 @@ export default function CustomRugContent() {
         ) : (
           <form onSubmit={handleSubmit}>
             <div style={{
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--surface)", border: "1px solid var(--border-light)",
               borderRadius: "var(--radius-xl)", padding: "36px",
               display: "flex", flexDirection: "column", gap: "32px",
+              boxShadow: "var(--shadow-md)",
             }}>
 
               {/* ── Design Source tabs ──────────────────────────────────── */}
               <div>
-                <label style={{ ...labelSt, marginBottom: "12px" }}>Design Source</label>
+                <label className="form-label" style={{ marginBottom: "12px", display: "block" }}>Design Source</label>
                 <div style={{
                   display: "flex", gap: "8px",
-                  background: "rgba(255,255,255,0.05)", borderRadius: "10px",
-                  padding: "4px", border: "1px solid rgba(255,255,255,0.1)",
+                  background: "var(--surface-alt)", borderRadius: "10px",
+                  padding: "4px", border: "1px solid var(--border-light)",
                   width: "fit-content",
                 }}>
                   {([
@@ -224,7 +202,13 @@ export default function CustomRugContent() {
                       key={tab.key}
                       type="button"
                       onClick={() => setDesignSource(tab.key)}
-                      style={designSource === tab.key ? tabActiveStyle : tabInactiveStyle}
+                      style={{
+                        padding: "9px 18px", borderRadius: "8px", border: "none",
+                        fontSize: "13px", fontWeight: designSource === tab.key ? 700 : 500,
+                        cursor: "pointer", transition: "all 0.2s ease", letterSpacing: "0.03em",
+                        background: designSource === tab.key ? "var(--primary)" : "transparent",
+                        color: designSource === tab.key ? "#fff" : "var(--foreground-muted)",
+                      }}
                     >
                       {tab.label}
                     </button>
@@ -237,9 +221,9 @@ export default function CustomRugContent() {
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       style={{
-                        border: "2px dashed rgba(255,255,255,0.2)", borderRadius: "var(--radius-lg)",
+                        border: "2px dashed var(--border)", borderRadius: "var(--radius-lg)",
                         padding: "28px", textAlign: "center", cursor: "pointer",
-                        background: designPreview ? "transparent" : "rgba(255,255,255,0.03)",
+                        background: designPreview ? "transparent" : "var(--surface-alt)",
                         transition: "all 0.2s ease",
                       }}
                       onDragOver={(e) => e.preventDefault()}
@@ -271,13 +255,13 @@ export default function CustomRugContent() {
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}
                           >×</button>
-                          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>{designFile?.name}</p>
+                          <p style={{ fontSize: "12px", color: "var(--foreground-muted)", marginTop: "8px" }}>{designFile?.name}</p>
                         </div>
                       ) : (
                         <>
                           <div style={{ fontSize: "28px", marginBottom: "8px", opacity: 0.4 }}>📎</div>
-                          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", marginBottom: "4px" }}>Click or drag & drop your design file</p>
-                          <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px" }}>PNG, JPG, PDF up to 10MB</p>
+                          <p style={{ color: "var(--foreground-muted)", fontSize: "14px", marginBottom: "4px" }}>Click or drag & drop your design file</p>
+                          <p style={{ color: "var(--foreground-muted)", fontSize: "12px", opacity: 0.6 }}>PNG, JPG, PDF up to 10MB</p>
                         </>
                       )}
                       <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileChange} style={{ display: "none" }} />
@@ -288,17 +272,17 @@ export default function CustomRugContent() {
                 {/* Browse panel */}
                 {designSource === "browse" && (
                   <div style={{ marginTop: "16px" }}>
-                    <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", color: "var(--foreground-muted)", marginBottom: "12px" }}>
                       Choose an existing design as your starting point — we&apos;ll customise it in any size, colour, or material.
                     </p>
                     {productsLoading ? (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
                         {[1,2,3,4,5,6,7,8].map((i) => (
-                          <div key={i} style={{ height: "100px", background: "rgba(255,255,255,0.06)", borderRadius: "8px" }} />
+                          <div key={i} style={{ height: "100px", background: "var(--surface-alt)", borderRadius: "8px" }} />
                         ))}
                       </div>
                     ) : products.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "24px", color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>
+                      <div style={{ textAlign: "center", padding: "24px", color: "var(--foreground-muted)", fontSize: "14px" }}>
                         No designs available yet.
                       </div>
                     ) : (
@@ -311,15 +295,15 @@ export default function CustomRugContent() {
                               style={{
                                 borderRadius: "8px", overflow: "hidden", position: "relative",
                                 aspectRatio: "1", cursor: "pointer",
-                                border: "1.5px solid rgba(255,255,255,0.1)",
+                                border: "1.5px solid var(--border-light)",
                               }}
-                              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(201,169,110,0.5)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-light)")}
                             >
                               <Image src={imgSrc} alt={product.title} fill sizes="100px" style={{ objectFit: "cover" }} />
                               <div style={{
                                 position: "absolute", bottom: 0, left: 0, right: 0,
-                                background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+                                background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)",
                                 padding: "6px 5px 5px", fontSize: "9px", color: "#fff", fontWeight: 600,
                               }}>
                                 {product.title.slice(0, 18)}
@@ -329,7 +313,7 @@ export default function CustomRugContent() {
                         })}
                       </div>
                     )}
-                    <Link href="/shop" style={{ display: "inline-block", marginTop: "10px", fontSize: "12px", color: "var(--gold)", textDecoration: "none", fontWeight: 600 }}>
+                    <Link href="/shop" style={{ display: "inline-block", marginTop: "10px", fontSize: "12px", color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
                       View full collection →
                     </Link>
                   </div>
@@ -338,124 +322,112 @@ export default function CustomRugContent() {
 
               {/* ── Rug Specifications ──────────────────────────────────── */}
               <div>
-                <label style={{ ...labelSt, marginBottom: "16px" }}>Rug Specifications</label>
+                <label className="form-label" style={{ marginBottom: "16px", display: "block" }}>Rug Specifications</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
 
-                  {/* Material */}
                   <div>
-                    <label style={labelSt}>Material</label>
-                    <select value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} style={selectSt}>
-                      <option value="">Select material…</option>
-                      {["Wool", "Wool & Silk", "Bamboo Silk", "Cotton", "Jute", "Synthetic / Polypropylene", "Not sure — advise me"].map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Material</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })}>
+                        <option value="">Select material…</option>
+                        {["Wool", "Wool & Silk", "Bamboo Silk", "Cotton", "Jute", "Synthetic / Polypropylene", "Not sure — advise me"].map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Technique */}
                   <div>
-                    <label style={labelSt}>Technique / Type</label>
-                    <select value={form.rugType} onChange={(e) => setForm({ ...form, rugType: e.target.value })} style={selectSt}>
-                      <option value="">Select type…</option>
-                      {["Hand Knotted", "Hand Tufted", "Durrie / Flat Weave", "Jute / Natural", "Not sure — advise me"].map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Technique / Type</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.rugType} onChange={(e) => setForm({ ...form, rugType: e.target.value })}>
+                        <option value="">Select type…</option>
+                        {["Hand Knotted", "Hand Tufted", "Durrie / Flat Weave", "Jute / Natural", "Not sure — advise me"].map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Style */}
                   <div>
-                    <label style={labelSt}>Style / Look</label>
-                    <select value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value })} style={selectSt}>
-                      <option value="">Select style…</option>
-                      {["Traditional / Classic", "Modern / Contemporary", "Bohemian / Boho", "Moroccan", "Scandinavian", "Geometric", "Floral", "Abstract", "Transitional", "Minimalist"].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Style / Look</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value })}>
+                        <option value="">Select style…</option>
+                        {["Traditional / Classic", "Modern / Contemporary", "Bohemian / Boho", "Moroccan", "Scandinavian", "Geometric", "Floral", "Abstract", "Transitional", "Minimalist"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Shape */}
                   <div>
-                    <label style={labelSt}>Shape</label>
-                    <select value={form.shape} onChange={(e) => setForm({ ...form, shape: e.target.value })} style={selectSt}>
-                      <option value="">Select shape…</option>
-                      {["Rectangle", "Square", "Round / Circular", "Oval", "Runner", "Custom Shape"].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Shape</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.shape} onChange={(e) => setForm({ ...form, shape: e.target.value })}>
+                        <option value="">Select shape…</option>
+                        {["Rectangle", "Square", "Round / Circular", "Oval", "Runner", "Custom Shape"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Size */}
                   <div>
-                    <label style={labelSt}>Size Required</label>
-                    <select value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} style={selectSt}>
-                      <option value="">Select size…</option>
-                      {["2×3 ft", "3×5 ft", "4×6 ft", "5×7 ft", "6×9 ft", "8×10 ft", "9×12 ft", "10×14 ft", "Custom size"].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Size Required</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })}>
+                        <option value="">Select size…</option>
+                        {["2×3 ft", "3×5 ft", "4×6 ft", "5×7 ft", "6×9 ft", "8×10 ft", "9×12 ft", "10×14 ft", "Custom size"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Pile Height */}
                   <div>
-                    <label style={labelSt}>Pile Height</label>
-                    <select value={form.pileHeight} onChange={(e) => setForm({ ...form, pileHeight: e.target.value })} style={selectSt}>
-                      <option value="">Select pile height…</option>
-                      {[
-                        "Flat Weave (0mm)",
-                        "Low Pile (3–6mm)",
-                        "Medium Pile (7–12mm)",
-                        "High Pile (13–20mm)",
-                        "Shaggy / Ultra High (21mm+)",
-                        "Not sure — advise me",
-                      ].map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Pile Height</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.pileHeight} onChange={(e) => setForm({ ...form, pileHeight: e.target.value })}>
+                        <option value="">Select pile height…</option>
+                        {["Flat Weave (0mm)", "Low Pile (3–6mm)", "Medium Pile (7–12mm)", "High Pile (13–20mm)", "Shaggy / Ultra High (21mm+)", "Not sure — advise me"].map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Primary Colour */}
                   <div>
-                    <label style={labelSt}>Primary Colour</label>
-                    <input
-                      value={form.primaryColor}
-                      onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                      style={inputSt}
-                      placeholder="e.g. Ivory, Navy, Terracotta"
-                    />
+                    <label className="form-label">Primary Colour</label>
+                    <input className="form-control" value={form.primaryColor} onChange={(e) => setForm({ ...form, primaryColor: e.target.value })} placeholder="e.g. Ivory, Navy, Terracotta" />
                   </div>
 
-                  {/* Secondary Colour */}
                   <div>
-                    <label style={labelSt}>Secondary Colour</label>
-                    <input
-                      value={form.secondaryColor}
-                      onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })}
-                      style={inputSt}
-                      placeholder="e.g. Gold, Sage, Cream"
-                    />
+                    <label className="form-label">Secondary Colour</label>
+                    <input className="form-control" value={form.secondaryColor} onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })} placeholder="e.g. Gold, Sage, Cream" />
                   </div>
 
-                  {/* Room */}
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={labelSt}>Room / Intended Use</label>
-                    <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} style={selectSt}>
-                      <option value="">Select room…</option>
-                      {["Living Room", "Bedroom", "Dining Room", "Hallway / Entryway", "Office / Study", "Hotel Lobby", "Commercial Space", "Outdoor", "Other"].map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                    <label className="form-label">Room / Intended Use</label>
+                    <div className="select-wrapper">
+                      <select className="form-control" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })}>
+                        <option value="">Select room…</option>
+                        {["Living Room", "Bedroom", "Dining Room", "Hallway / Entryway", "Office / Study", "Hotel Lobby", "Commercial Space", "Outdoor", "Other"].map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Notes */}
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={labelSt}>Notes / Reference Image</label>
+                    <label className="form-label">Notes / Reference Image</label>
                     <textarea
+                      className="form-control"
                       rows={3}
                       value={form.notes}
                       onChange={(e) => setForm({ ...form, notes: e.target.value })}
                       placeholder="Describe your vision, share a Pinterest link, Pantone code, or any reference. Pile height preferences, budget range, delivery timeline…"
-                      style={{ ...inputSt, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
+                      style={{ resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
                     />
                   </div>
                 </div>
@@ -463,19 +435,19 @@ export default function CustomRugContent() {
 
               {/* ── Live Price Estimate ─────────────────────────────────── */}
               <div style={{
-                background: "rgba(201,169,110,0.1)", border: "1px solid rgba(201,169,110,0.25)",
+                background: "var(--primary-pale)", border: "1px solid var(--border-green)",
                 borderRadius: "var(--radius-lg)", padding: "20px 24px",
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap",
               }}>
                 <div>
-                  <p style={{ fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: "4px" }}>
+                  <p style={{ fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--primary)", fontWeight: 600, marginBottom: "4px" }}>
                     Live Price Estimate
                   </p>
-                  <p style={{ fontSize: "26px", fontFamily: "var(--font-cormorant), Georgia, serif", fontWeight: 500, color: "var(--gold-light)" }}>
+                  <p style={{ fontSize: "26px", fontFamily: "var(--font-cormorant), Georgia, serif", fontWeight: 500, color: "var(--foreground)" }}>
                     {priceEstimate}
                   </p>
                 </div>
-                <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)", maxWidth: "260px", lineHeight: 1.5 }}>
+                <p style={{ fontSize: "12px", color: "var(--foreground-muted)", maxWidth: "260px", lineHeight: 1.5 }}>
                   {form.rugType && form.size
                     ? "Based on technique & size. Final quote confirmed within 24 hours."
                     : "Select technique & size above to see your price estimate."}
@@ -484,39 +456,23 @@ export default function CustomRugContent() {
 
               {/* ── Customer Details ────────────────────────────────────── */}
               <div>
-                <label style={{ ...labelSt, marginBottom: "16px" }}>Your Details</label>
+                <label className="form-label" style={{ marginBottom: "16px", display: "block" }}>Your Details</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                   <div>
-                    <label style={labelSt}>Full Name *</label>
-                    <input
-                      required value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      style={inputSt} placeholder="Your name"
-                    />
+                    <label className="form-label">Full Name *</label>
+                    <input required className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name" />
                   </div>
                   <div>
-                    <label style={labelSt}>Email *</label>
-                    <input
-                      required type="email" value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      style={inputSt} placeholder="you@email.com"
-                    />
+                    <label className="form-label">Email *</label>
+                    <input required type="email" className="form-control" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@email.com" />
                   </div>
                   <div>
-                    <label style={labelSt}>Phone / WhatsApp</label>
-                    <input
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      style={inputSt} placeholder="+1 234 567 8900"
-                    />
+                    <label className="form-label">Phone / WhatsApp</label>
+                    <input className="form-control" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 234 567 8900" />
                   </div>
                   <div>
-                    <label style={labelSt}>Country</label>
-                    <input
-                      value={form.country}
-                      onChange={(e) => setForm({ ...form, country: e.target.value })}
-                      style={inputSt} placeholder="United States"
-                    />
+                    <label className="form-label">Country</label>
+                    <input className="form-control" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="United States" />
                   </div>
                 </div>
               </div>
@@ -524,9 +480,9 @@ export default function CustomRugContent() {
               {/* ── Error ───────────────────────────────────────────────── */}
               {submitError && (
                 <div style={{
-                  background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)",
+                  background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)",
                   borderRadius: "var(--radius-md)", padding: "12px 16px",
-                  color: "#fca5a5", fontSize: "14px",
+                  color: "#dc2626", fontSize: "14px",
                 }}>
                   {submitError}
                 </div>
@@ -537,14 +493,11 @@ export default function CustomRugContent() {
                 <button
                   type="submit"
                   disabled={submitting}
+                  className="btn btn-primary"
                   style={{
-                    flex: 2, minWidth: "200px", padding: "18px",
-                    background: "var(--gold)", color: "var(--foreground)",
-                    border: "none", borderRadius: "9999px",
-                    fontSize: "12px", fontWeight: 700, letterSpacing: "0.1em",
-                    textTransform: "uppercase", cursor: submitting ? "default" : "pointer",
-                    opacity: submitting ? 0.7 : 1,
-                    boxShadow: "0 4px 20px rgba(201,169,110,0.35)",
+                    flex: 2, minWidth: "200px", padding: "16px",
+                    fontSize: "12px", letterSpacing: "0.1em",
+                    opacity: submitting ? 0.7 : 1, cursor: submitting ? "default" : "pointer",
                   }}
                 >
                   {submitting ? "Submitting…" : "Submit Quote Request"}
@@ -552,12 +505,8 @@ export default function CustomRugContent() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  style={{
-                    flex: 1, padding: "17px 24px", background: "transparent",
-                    color: "rgba(255,255,255,0.5)",
-                    border: "1.5px solid rgba(255,255,255,0.15)",
-                    borderRadius: "9999px", fontSize: "12px", cursor: "pointer",
-                  }}
+                  className="btn btn-ghost"
+                  style={{ flex: 1, padding: "15px 24px", fontSize: "12px" }}
                 >
                   Reset
                 </button>
@@ -566,7 +515,7 @@ export default function CustomRugContent() {
                   target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", flex: 1 }}
                 >
                   <button type="button" style={{
-                    width: "100%", padding: "17px", background: "#25D366", color: "#fff",
+                    width: "100%", padding: "15px", background: "#25D366", color: "#fff",
                     border: "none", borderRadius: "9999px", fontSize: "13px", fontWeight: 700,
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                   }}>
@@ -584,7 +533,7 @@ export default function CustomRugContent() {
                   { icon: "🚚", text: "Free Worldwide Shipping" },
                   { icon: "💬", text: "WhatsApp Support" },
                 ].map((item) => (
-                  <div key={item.text} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>
+                  <div key={item.text} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--foreground-muted)" }}>
                     <span>{item.icon}</span> {item.text}
                   </div>
                 ))}
@@ -594,6 +543,6 @@ export default function CustomRugContent() {
           </form>
         )}
       </div>
-    </section>
+    </div>
   );
 }
