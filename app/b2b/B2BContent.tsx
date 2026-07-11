@@ -98,14 +98,6 @@ const QUALITY_CONTROL = [
   { icon: "📋", title: "Final QC Certificate", desc: "Each shipment includes a signed QC certificate covering knot count, materials, dimensions, and packing details." },
 ];
 
-const MOQ_INFO = [
-  { construction: "Hand Knotted", moq: "1 piece", leadTime: "4–8 weeks", note: "Luxury handcrafted · Quote on request" },
-  { construction: "Hand Tufted", moq: "1 piece", leadTime: "3–5 weeks", note: "Commercial grade available · Quote on request" },
-  { construction: "Durrie / Flat Weave", moq: "5 pieces", leadTime: "2–4 weeks", note: "Bulk discounts available · Quote on request" },
-  { construction: "Jute / Natural Fibre", moq: "5 pieces", leadTime: "2–3 weeks", note: "Eco-certified · Quote on request" },
-  { construction: "Custom Blend", moq: "10 pieces", leadTime: "5–8 weeks", note: "Tailored specification · Quote on request" },
-];
-
 const EXPORT_MARKETS = [
   { flag: "🇺🇸", country: "USA", detail: "Tariff-free available · Air & Sea · 7–14 day delivery" },
   { flag: "🇬🇧", country: "United Kingdom", detail: "Free shipping · DDP · 5–10 day delivery" },
@@ -555,58 +547,6 @@ export default function B2BContent() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          MOQ INFORMATION (no public prices — inquiry required)
-          ═══════════════════════════════════════════════════════════════ */}
-      <section style={{ padding: "80px 0", background: "var(--background)" }}>
-        <div className="container">
-          <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <p className="eyebrow" style={{ marginBottom: "14px" }}>✦ &nbsp; Production Minimums</p>
-            <h2 style={{ fontFamily: "var(--font-cormorant), Georgia, serif", fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 300, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
-              MOQ & Lead Times
-            </h2>
-            <p style={{ color: "var(--foreground-muted)", fontSize: "15px", maxWidth: "520px", margin: "16px auto 0", lineHeight: 1.7 }}>
-              We offer competitive trade pricing exclusively through direct inquiry. Submit your requirements for a personalised quote.
-            </p>
-          </div>
-          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "var(--shadow-md)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "var(--primary)" }}>
-                  {["Construction Method", "Min. Order Qty", "Lead Time", "Pricing"].map((h) => (
-                    <th key={h} style={{ padding: "14px 20px", color: "#fff", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "left" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {MOQ_INFO.map((row, i) => (
-                  <tr key={row.construction} style={{ background: i % 2 === 0 ? "var(--surface)" : "var(--surface-alt)", borderBottom: "1px solid var(--border-light)" }}>
-                    <td style={{ padding: "14px 20px", fontWeight: 700, color: "var(--foreground)", fontSize: "14px" }}>{row.construction}</td>
-                    <td style={{ padding: "14px 20px", fontSize: "14px", color: "var(--foreground-muted)" }}>{row.moq}</td>
-                    <td style={{ padding: "14px 20px", fontSize: "14px", color: "var(--foreground-muted)" }}>{row.leadTime}</td>
-                    <td style={{ padding: "14px 20px" }}>
-                      <a href="#b2b-form" style={{ display: "inline-block", padding: "6px 16px", background: "var(--primary-pale)", border: "1px solid var(--border-green)", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}>
-                        Inquire for Pricing →
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ padding: "20px 24px", background: "linear-gradient(135deg, var(--primary-pale) 0%, rgba(184,151,90,0.05) 100%)", borderTop: "1px solid var(--border-green)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
-              <p style={{ fontSize: "13px", color: "var(--primary)", fontWeight: 500 }}>
-                ✦ Trade pricing is shared exclusively with registered trade clients after inquiry. Volume discounts apply for 10+, 50+, and 100+ pieces.
-              </p>
-              <a href="#b2b-form" style={{ textDecoration: "none" }}>
-                <button style={{ padding: "10px 24px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: "9999px", fontSize: "12px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  Get Trade Pricing →
-                </button>
-              </a>
-            </div>
           </div>
         </div>
       </section>
